@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HCV4.1 - Historia Clínica Odontológica con Google Drive</title>
+  <title>Historia Clínica Odontológica con Google Drive</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -117,7 +117,7 @@
     </nav>
 
     <section class="top-grid actions-print-hide">
-      <div class="card"><div class="card-title">Buscar paciente por cédula</div><div class="card-body">
+      <div class="card"><div class="card-title">Buscar local por cédula</div><div class="card-body">
         <div class="search-row"><input id="buscarCedula" type="text" placeholder="Ingrese número de cédula"><button class="secondary" onclick="buscarPaciente()">🔍</button></div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;"><button class="primary" onclick="buscarPaciente()">🔍 Buscar Paciente</button><button class="secondary" onclick="nuevoPaciente()">⊕ Nuevo Paciente</button></div>
       </div></div>
@@ -258,11 +258,11 @@
 
     </form>
 
-    <div class="footer"><span>HCV4.4 · Historia Clínica Odontológica Digital con Google Drive · Versión 4.4</span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
+    <div class="footer"><span>HCV4.4 · Historia Clínica Odontológica Digital con Google Drive · </span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
   </div>
 
   <script>
-    const VERSION_KEY = 'HCV4_';
+    const VERSION_KEY = 'HCV_';
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyps-4XmqcsMSYQ819m5AWLlG8kGgicOmt1g3pAtlo8l5_0uXvMz7Yo5oqz0TohhQnpGQ/exec';
     const VERSION_ANTERIOR_KEYS = ['HCV21_', 'HCV2_', 'HCV1_'];
     let evoluciones = [];
@@ -291,18 +291,37 @@
       datos.evoluciones = evoluciones;
       datos.examenes = examenes;
       datos.nombreArchivo=obtenerNombreArchivo();
-      datos.version='HCV4.4';
-      datos.fechaRegistro=new Date().toISOString();
+            datos.fechaRegistro=new Date().toISOString();
       return datos;
     }
 
     function cargarDatosFormulario(datos) {
-      CAMPOS_TEXTO.forEach(c=>{ if(document.getElementById(c)) document.getElementById(c).value=datos[c]||''; });
-      CAMPOS_CHECK.forEach(c=>{ if(document.getElementById(c)) document.getElementById(c).checked=!!datos[c]; });
-      RADIO_GROUPS.forEach(c=>setRadio(c, datos[c]||''));
+      datos = datos || {};
+      // Compatibilidad: carga por id exacto y tolera historias guardadas con versiones anteriores.
+      CAMPOS_TEXTO.forEach(c => {
+        const el = document.getElementById(c);
+        if (el) el.value = (datos[c] !== undefined && datos[c] !== null) ? datos[c] : '';
+      });
+      CAMPOS_CHECK.forEach(c => {
+        const el = document.getElementById(c);
+        if (el) el.checked = !!datos[c];
+      });
+      RADIO_GROUPS.forEach(c => setRadio(c, datos[c] || ''));
+
       evoluciones = Array.isArray(datos.evoluciones) ? datos.evoluciones : [];
       examenes = Array.isArray(datos.examenes) ? datos.examenes : [];
-      calcularEdad(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); actualizarResumenPaciente(); actualizarAlertasMedicas();
+
+      calcularEdad();
+      actualizarNombreArchivo();
+      renderEvoluciones();
+      renderExamenes();
+      actualizarResumenPaciente();
+      actualizarAlertasMedicas();
+
+      // Deja visible la cédula también en el buscador.
+      if (datos.cedula && document.getElementById('buscarCedula')) {
+        document.getElementById('buscarCedula').value = datos.cedula;
+      }
     }
 
     function guardarHistoria() {
@@ -310,7 +329,7 @@
       calcularEdad();
       const datos=obtenerDatosFormulario();
       localStorage.setItem(VERSION_KEY + datos.cedula.trim(), JSON.stringify(datos));
-      alert('Historia clínica HCV3.3 guardada en este navegador.\n\nNombre: ' + datos.nombreArchivo);
+      alert('Historia clínica guardada localmente en este navegador.\n\nNombre: ' + datos.nombreArchivo);
       actualizarListaPacientes();
     }
 
@@ -389,6 +408,8 @@
 
     function buscarDriveJSONP(cedulaBuscar) {
       // Búsqueda por JSONP: evita bloqueos CORS de GitHub Pages con Google Apps Script.
+      // La cédula se limpia a números para evitar espacios, guiones o caracteres invisibles.
+      const cedulaLimpia = String(cedulaBuscar || '').replace(/\D/g, '');
       return new Promise((resolve) => {
         const callbackName = 'hcvDriveCallback_' + Date.now() + '_' + Math.random().toString(36).slice(2);
         const script = document.createElement('script');
@@ -415,9 +436,10 @@
 
         script.src = APPS_SCRIPT_URL
           + '?accion=buscarHistoria'
-          + '&cedula=' + encodeURIComponent(cedulaBuscar)
+          + '&cedula=' + encodeURIComponent(cedulaLimpia)
           + '&callback=' + encodeURIComponent(callbackName)
           + '&t=' + Date.now();
+
         document.body.appendChild(script);
       });
     }
@@ -448,37 +470,31 @@
     }
 
     async function buscarPacienteDrive() {
-      const c = (buscarCedula.value || cedula.value || '').trim();
+      const c = String((buscarCedula.value || cedula.value || '')).replace(/\D/g, '');
       if(!c){ alert('Ingrese una cédula para buscar en Google Drive.'); return; }
 
-      setDriveStatus('Buscando historia en Google Drive...', 'info');
+      setDriveStatus('Buscando historia en Google Drive para la cédula ' + c + '...', 'info');
 
       try {
-        // HCV4.4: la búsqueda usa JSONP por GET.
-        // Esto es lo mismo que ya comprobamos en el navegador con ?accion=buscarHistoria&cedula=...
-        // y permite leer la respuesta desde GitHub Pages sin bloqueo CORS.
         const r = await buscarDriveJSONP(c);
-
         console.log('Respuesta buscarHistoria Drive JSONP:', r);
 
         if(r && r.ok && r.data) {
           cargarDatosFormulario(r.data);
-          buscarCedula.value = r.data.cedula || c;
 
-          calcularEdad();
-          actualizarNombreArchivo();
-          actualizarResumenPaciente();
-          actualizarAlertasMedicas();
-          renderEvoluciones();
-          renderExamenes();
+          // Guardar copia local como respaldo inmediato después de recuperar desde Drive.
+          try {
+            localStorage.setItem(VERSION_KEY + String(r.data.cedula || c).trim(), JSON.stringify(r.data));
+          } catch(e) {}
 
           setDriveStatus('✓ Historia encontrada y cargada desde Google Drive · Carpeta: ' + (r.carpetaPaciente || r.data.nombreArchivo || ''), 'ok');
           alert('Paciente encontrado y cargado desde Google Drive.');
           return;
         }
 
-        setDriveStatus((r && r.mensaje) || 'No se encontró historia clínica en Google Drive.', 'err');
-        alert((r && r.mensaje) || 'No se encontró historia clínica en Google Drive.');
+        const msg = (r && r.mensaje) ? r.mensaje : 'No se encontró historia clínica en Google Drive.';
+        setDriveStatus(msg + ' · Cédula buscada: ' + c, 'err');
+        alert(msg);
 
       } catch(err) {
         console.error('Error buscando en Drive:', err);
@@ -490,7 +506,7 @@
 
     function nuevoPaciente() { if(confirm('¿Desea limpiar el formulario para crear un nuevo paciente?')) limpiarFormulario(); }
     function limpiarFormulario() { formHistoria.reset(); buscarCedula.value=''; edad.value=''; evoluciones=[]; examenes=[]; editandoEvolucionIndex=null; actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); actualizarResumenPaciente(); }
-    function eliminarPaciente() { const c=cedula.value.trim(); if(!c){ alert('Primero cargue o ingrese la cédula del paciente.'); return; } if(!confirm('¿Eliminar la historia guardada de la cédula ' + c + ' en este navegador?')) return; localStorage.removeItem(VERSION_KEY+c); actualizarListaPacientes(); alert('Paciente eliminado del almacenamiento local HCV3.1.'); }
+    function eliminarPaciente() { const c=cedula.value.trim(); if(!c){ alert('Primero cargue o ingrese la cédula del paciente.'); return; } if(!confirm('¿Eliminar la historia guardada de la cédula ' + c + ' en este navegador?')) return; localStorage.removeItem(VERSION_KEY+c); actualizarListaPacientes(); alert('Paciente eliminado del almacenamiento local.'); }
     function descargarJSON() { if(!validarMinimo()) return; const datos=obtenerDatosFormulario(); const blob=new Blob([JSON.stringify(datos,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=datos.nombreArchivo+'_historia_clinica_HCV3_1.json'; a.click(); URL.revokeObjectURL(a.href); }
     function importarJSONClick() { document.getElementById('importFile').click(); }
     function importarJSON(event) { const file=event.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=e=>{ try{ const datos=JSON.parse(e.target.result); cargarDatosFormulario(datos); alert('Datos importados correctamente.'); }catch(err){ alert('El archivo no tiene un formato JSON válido.'); } }; reader.readAsText(file); event.target.value=''; }
