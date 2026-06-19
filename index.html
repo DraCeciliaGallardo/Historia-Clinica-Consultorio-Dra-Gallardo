@@ -337,25 +337,32 @@
       const c = (document.getElementById('buscarCedula')?.value || '').replace(/\D/g, '');
       if(!c){ alert('Ingrese una cédula para buscar.'); return; }
 
-      // Primero intenta en el navegador local.
-      let guardado = localStorage.getItem(VERSION_KEY + c), origen = 'local';
+      // IMPORTANTE:
+      // La lupita ahora consulta PRIMERO Google Drive, para evitar traer datos antiguos
+      // guardados en el navegador local. El navegador solo queda como respaldo.
+      setDriveStatus('Buscando primero en Google Drive para evitar datos desactualizados...', 'info');
+
+      const encontroDrive = await buscarPacienteDrive(true);
+      if (encontroDrive) return;
+
+      // Respaldo local solo si Drive no responde o no encuentra.
+      let guardado = localStorage.getItem(VERSION_KEY + c);
       if(!guardado){
         for(const k of VERSION_ANTERIOR_KEYS){
           guardado = localStorage.getItem(k + c);
-          if(guardado){ origen = 'local anterior'; break; }
+          if(guardado) break;
         }
       }
 
       if(guardado){
         cargarDatosFormulario(JSON.parse(guardado));
-        setDriveStatus('✓ Paciente encontrado y cargado desde almacenamiento local.', 'ok');
-        alert('Paciente encontrado y cargado desde almacenamiento local.');
+        setDriveStatus('⚠ Se cargó desde respaldo local del navegador. Revise si está actualizado.', 'info');
+        alert('Se cargó desde respaldo local del navegador. Para datos más recientes use Guardar en Drive y Buscar en Google Drive.');
         return;
       }
 
-      // Si no está local, busca automáticamente en Google Drive.
-      setDriveStatus('No está en este navegador. Buscando automáticamente en Google Drive...', 'info');
-      await buscarPacienteDrive();
+      setDriveStatus('No se encontró el paciente ni en Drive ni en respaldo local.', 'err');
+      alert('No se encontró el paciente.');
     }
 
     function setDriveStatus(msg, tipo='info') {
@@ -484,7 +491,7 @@
       }
     }
 
-    async function buscarPacienteDrive() {
+    async function buscarPacienteDrive(silencioso=false) {
       const campoBuscar = document.getElementById('buscarCedula');
       const campoCedula = document.getElementById('cedula');
 
@@ -499,8 +506,8 @@
       agregar(campoCedula ? campoCedula.value : '');
 
       if(!candidatos.length){
-        alert('Ingrese una cédula para buscar en Google Drive.');
-        return;
+        if(!silencioso) alert('Ingrese una cédula para buscar en Google Drive.');
+        return false;
       }
 
       setDriveStatus('Buscando historia en Google Drive para la cédula ' + candidatos[0] + '...', 'info');
@@ -532,18 +539,20 @@
           } catch(e) {}
 
           setDriveStatus('✓ Historia encontrada y cargada desde Google Drive · Carpeta: ' + (respuestaFinal.carpetaPaciente || respuestaFinal.data.nombreArchivo || ''), 'ok');
-          alert('Paciente encontrado y cargado desde Google Drive.');
-          return;
+          if(!silencioso) alert('Paciente encontrado y cargado desde Google Drive.');
+          return true;
         }
 
         const msg = (respuestaFinal && respuestaFinal.mensaje) ? respuestaFinal.mensaje : 'No se encontró historia clínica en Google Drive.';
         setDriveStatus(msg + ' · Cédula(s) consultada(s): ' + candidatos.join(', '), 'err');
-        alert(msg + '\n\nCédula(s) consultada(s): ' + candidatos.join(', '));
+        if(!silencioso) alert(msg + '\n\nCédula(s) consultada(s): ' + candidatos.join(', '));
+        return false;
 
       } catch(err) {
         console.error('Error buscando en Drive:', err);
         setDriveStatus('Error de conexión con Apps Script: ' + err.message, 'err');
-        alert('No se pudo conectar con Google Drive.');
+        if(!silencioso) alert('No se pudo conectar con Google Drive.');
+        return false;
       }
     }
 
@@ -863,7 +872,7 @@
       listaPacientes.innerHTML=''; const pacientes=[];
       for(let i=0;i<localStorage.length;i++){ const key=localStorage.key(i); if(key.startsWith(VERSION_KEY)){ try{ pacientes.push(JSON.parse(localStorage.getItem(key))); }catch(e){} } }
       pacientes.sort((a,b)=>(a.primerApellido||'').localeCompare(b.primerApellido||''));
-      if(!pacientes.length){ listaPacientes.innerHTML='<li>No hay pacientes guardados en HCV3.1 todavía.</li>'; return; }
+      if(!pacientes.length){ listaPacientes.innerHTML='<li>No hay pacientes guardados localmente en este navegador. La búsqueda principal se hace en Google Drive.</li>'; return; }
       pacientes.forEach(p=>{ const li=document.createElement('li'); li.textContent=`${p.cedula} - ${p.primerApellido} ${p.segundoApellido} ${p.nombres} (${(p.evoluciones||[]).length} consultas)`; listaPacientes.appendChild(li); });
     }
 
