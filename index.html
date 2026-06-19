@@ -373,58 +373,40 @@
     }
 
     async function enviarDrive(payload) {
-      // Comunicación compatible con GitHub Pages + Google Apps Script.
-      // Usamos un formulario oculto hacia un iframe y Apps Script responde con postMessage,
-      // evitando bloqueos CORS del navegador.
+      // Guardado por JSONP/GET: evita CORS e iframe oculto.
+      // Apps Script debe tener doGet que acepte accion=guardarHistoria&payload=...&callback=...
       return new Promise((resolve) => {
-        const token = 'hcv_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-        const iframeName = 'iframe_' + token;
-        const iframe = document.createElement('iframe');
-        iframe.name = iframeName;
-        iframe.style.display = 'none';
-
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = APPS_SCRIPT_URL;
-        form.target = iframeName;
-        form.style.display = 'none';
-        form.enctype = 'application/x-www-form-urlencoded';
-
-        const inputPayload = document.createElement('input');
-        inputPayload.type = 'hidden';
-        inputPayload.name = 'payload';
-        inputPayload.value = JSON.stringify({ ...payload, _token: token });
-
-        const inputMode = document.createElement('input');
-        inputMode.type = 'hidden';
-        inputMode.name = 'responseMode';
-        inputMode.value = 'postMessage';
-
-        form.appendChild(inputPayload);
-        form.appendChild(inputMode);
-        document.body.appendChild(iframe);
-        document.body.appendChild(form);
-
-        const limpiar = () => {
-          window.removeEventListener('message', onMessage);
-          setTimeout(() => { iframe.remove(); form.remove(); }, 100);
-        };
+        const callbackName = 'hcvSaveCallback_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const script = document.createElement('script');
 
         const timeout = setTimeout(() => {
           limpiar();
           resolve({ ok:false, mensaje:'Tiempo de espera agotado comunicando con Google Drive.' });
         }, 45000);
 
-        function onMessage(event) {
-          const data = event.data || {};
-          if(!data || data._token !== token) return;
+        function limpiar() {
           clearTimeout(timeout);
-          limpiar();
-          resolve(data);
+          try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
+          if (script && script.parentNode) script.parentNode.removeChild(script);
         }
 
-        window.addEventListener('message', onMessage);
-        form.submit();
+        window[callbackName] = function(respuesta) {
+          limpiar();
+          resolve(respuesta || { ok:false, mensaje:'Respuesta vacía de Google Drive.' });
+        };
+
+        script.onerror = function() {
+          limpiar();
+          resolve({ ok:false, mensaje:'No se pudo conectar con Google Drive para guardar la historia.' });
+        };
+
+        script.src = APPS_SCRIPT_URL
+          + '?accion=guardarHistoria'
+          + '&payload=' + encodeURIComponent(JSON.stringify(payload))
+          + '&callback=' + encodeURIComponent(callbackName)
+          + '&t=' + Date.now();
+
+        document.body.appendChild(script);
       });
     }
 
