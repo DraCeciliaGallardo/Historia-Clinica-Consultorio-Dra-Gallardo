@@ -122,7 +122,7 @@
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;"><button class="primary" onclick="buscarPaciente()">🔍 Buscar Paciente</button><button class="secondary" onclick="nuevoPaciente()">⊕ Nuevo Paciente</button></div>
       </div></div>
       <div class="card"><div class="card-title">Nombre del archivo (automático)</div><div class="card-body"><div id="nombreArchivo" class="file-preview">— — —</div><div class="note">Se generará automáticamente con: CÉDULA_PRIMERAPELLIDO_SEGUNDOAPELLIDO</div></div></div>
-      <div class="card"><div class="card-title">Acciones</div><div class="card-body actions-grid"><button class="primary" onclick="guardarHistoriaDrive()">☁ Guardar en Drive</button><button class="primary" onclick="buscarPacienteDrive()">🔎 Buscar en Drive</button><button class="secondary" onclick="guardarHistoria()">💾 Guardar Local</button><button class="primary" onclick="generarPDF()">📄 PDF Historia Actual</button><button class="primary" onclick="generarHistoriaBlancoPDF()">📄 Historia en Blanco PDF</button><button class="primary" onclick="generarFormularioPaciente()">📝 Formulario para Paciente</button><button class="secondary" onclick="descargarJSON()">⬇ Descargar JSON</button><button class="secondary" onclick="importarJSONClick()">⬆ Importar Datos</button><input type="file" id="importFile" accept="application/json" style="display:none" onchange="importarJSON(event)"><button class="danger" onclick="eliminarPaciente()">🗑 Eliminar</button><button class="secondary" onclick="limpiarFormulario()">🧹 Limpiar</button><div id="driveStatus" class="drive-status full"></div></div></div></div>
+      <div class="card"><div class="card-title">Acciones</div><div class="card-body actions-grid"><button class="primary" onclick="guardarHistoriaDrive()">☁ Guardar en Drive</button><button class="primary" onclick="buscarPacienteDrive()">🔎 Buscar en Google Drive</button><button class="secondary" onclick="guardarHistoria()">💾 Guardar Local</button><button class="primary" onclick="generarPDF()">📄 PDF Historia Actual</button><button class="primary" onclick="generarHistoriaBlancoPDF()">📄 Historia en Blanco PDF</button><button class="primary" onclick="generarFormularioPaciente()">📝 Formulario para Paciente</button><button class="secondary" onclick="descargarJSON()">⬇ Descargar JSON</button><button class="secondary" onclick="importarJSONClick()">⬆ Importar Datos</button><input type="file" id="importFile" accept="application/json" style="display:none" onchange="importarJSON(event)"><button class="danger" onclick="eliminarPaciente()">🗑 Eliminar</button><button class="secondary" onclick="limpiarFormulario()">🧹 Limpiar</button><div id="driveStatus" class="drive-status full"></div></div></div></div>
     </section>
 
     <form id="formHistoria">
@@ -258,7 +258,7 @@
 
     </form>
 
-    <div class="footer"><span>HCV4.1 · Historia Clínica Odontológica Digital con Google Drive · Versión 4.1</span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
+    <div class="footer"><span>HCV4.2 · Historia Clínica Odontológica Digital con Google Drive · Versión 4.2</span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
   </div>
 
   <script>
@@ -291,7 +291,7 @@
       datos.evoluciones = evoluciones;
       datos.examenes = examenes;
       datos.nombreArchivo=obtenerNombreArchivo();
-      datos.version='HCV4.1';
+      datos.version='HCV4.2';
       datos.fechaRegistro=new Date().toISOString();
       return datos;
     }
@@ -387,6 +387,42 @@
       });
     }
 
+    function buscarDriveJSONP(cedulaBuscar) {
+      // Búsqueda por JSONP: evita bloqueos CORS de GitHub Pages con Google Apps Script.
+      return new Promise((resolve) => {
+        const callbackName = 'hcvDriveCallback_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => {
+          limpiar();
+          resolve({ ok:false, mensaje:'Tiempo de espera agotado buscando en Google Drive.' });
+        }, 45000);
+
+        function limpiar() {
+          clearTimeout(timeout);
+          try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
+          if (script && script.parentNode) script.parentNode.removeChild(script);
+        }
+
+        window[callbackName] = function(respuesta) {
+          limpiar();
+          resolve(respuesta || { ok:false, mensaje:'Respuesta vacía de Google Drive.' });
+        };
+
+        script.onerror = function() {
+          limpiar();
+          resolve({ ok:false, mensaje:'No se pudo conectar con Google Drive para buscar la historia.' });
+        };
+
+        script.src = APPS_SCRIPT_URL
+          + '?accion=buscarHistoria'
+          + '&cedula=' + encodeURIComponent(cedulaBuscar)
+          + '&callback=' + encodeURIComponent(callbackName)
+          + '&t=' + Date.now();
+        document.body.appendChild(script);
+      });
+    }
+
+
     async function guardarHistoriaDrive(silencioso=false) {
       if(!validarMinimo()) return false;
       calcularEdad();
@@ -413,19 +449,19 @@
 
     async function buscarPacienteDrive() {
       const c = (buscarCedula.value || cedula.value || '').trim();
-      if(!c){ alert('Ingrese una cédula para buscar en Drive.'); return; }
+      if(!c){ alert('Ingrese una cédula para buscar en Google Drive.'); return; }
       setDriveStatus('Buscando historia en Google Drive...', 'info');
       try {
-        const r = await enviarDrive({ accion:'buscarHistoria', cedula:c });
+        const r = await buscarDriveJSONP(c);
         if(r.ok && r.data) {
           cargarDatosFormulario(r.data);
           buscarCedula.value = r.data.cedula || c;
-          setDriveStatus('✓ Historia encontrada en Drive · Carpeta: ' + (r.carpetaPaciente || r.data.nombreArchivo || ''), 'ok');
+          setDriveStatus('✓ Historia encontrada y cargada desde Google Drive · Carpeta: ' + (r.carpetaPaciente || r.data.nombreArchivo || ''), 'ok');
           alert('Paciente encontrado y cargado desde Google Drive.');
           return;
         }
-        setDriveStatus(r.mensaje || 'No se encontró historia clínica en Drive.', 'err');
-        alert(r.mensaje || 'No se encontró historia clínica en Drive.');
+        setDriveStatus(r.mensaje || 'No se encontró historia clínica en Google Drive.', 'err');
+        alert(r.mensaje || 'No se encontró historia clínica en Google Drive.');
       } catch(err) {
         setDriveStatus('Error de conexión con Apps Script: ' + err.message, 'err');
         alert('No se pudo conectar con Google Drive.');
