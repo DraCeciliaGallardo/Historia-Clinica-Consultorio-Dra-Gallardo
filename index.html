@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HCV4.1 - Historia Clínica Odontológica con Google Drive</title>
+  <title>HCV4.3 - Historia Clínica Odontológica con Google Drive</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -291,7 +291,7 @@
       datos.evoluciones = evoluciones;
       datos.examenes = examenes;
       datos.nombreArchivo=obtenerNombreArchivo();
-      datos.version='HCV4.2';
+      datos.version='HCV4.3';
       datos.fechaRegistro=new Date().toISOString();
       return datos;
     }
@@ -450,19 +450,43 @@
     async function buscarPacienteDrive() {
       const c = (buscarCedula.value || cedula.value || '').trim();
       if(!c){ alert('Ingrese una cédula para buscar en Google Drive.'); return; }
+
       setDriveStatus('Buscando historia en Google Drive...', 'info');
+
       try {
-        const r = await buscarDriveJSONP(c);
-        if(r.ok && r.data) {
+        // HCV4.3: usamos el mismo canal POST/iframe que ya funcionó para GUARDAR.
+        // Así evitamos que GitHub/Chrome bloquee la respuesta por CORS o JSONP.
+        const r = await enviarDrive({ accion:'buscarHistoria', cedula:c });
+
+        console.log('Respuesta buscarHistoria Drive:', r);
+
+        if(r && r.ok && r.data) {
           cargarDatosFormulario(r.data);
           buscarCedula.value = r.data.cedula || c;
+
+          // Refuerzo visual: si el navegador no refresca algún campo, lo colocamos explícitamente.
+          ['cedula','primerApellido','segundoApellido','nombres','direccion','telefono','fechaNacimiento','fechaPrimeraAtencion','referido','enfermedades','motivoConsulta'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el && Object.prototype.hasOwnProperty.call(r.data, id)) el.value = r.data[id] || '';
+          });
+
+          calcularEdad();
+          actualizarNombreArchivo();
+          actualizarResumenPaciente();
+          actualizarAlertasMedicas();
+          renderEvoluciones();
+          renderExamenes();
+
           setDriveStatus('✓ Historia encontrada y cargada desde Google Drive · Carpeta: ' + (r.carpetaPaciente || r.data.nombreArchivo || ''), 'ok');
           alert('Paciente encontrado y cargado desde Google Drive.');
           return;
         }
-        setDriveStatus(r.mensaje || 'No se encontró historia clínica en Google Drive.', 'err');
-        alert(r.mensaje || 'No se encontró historia clínica en Google Drive.');
+
+        setDriveStatus((r && r.mensaje) || 'No se encontró historia clínica en Google Drive.', 'err');
+        alert((r && r.mensaje) || 'No se encontró historia clínica en Google Drive.');
+
       } catch(err) {
+        console.error('Error buscando en Drive:', err);
         setDriveStatus('Error de conexión con Apps Script: ' + err.message, 'err');
         alert('No se pudo conectar con Google Drive.');
       }
