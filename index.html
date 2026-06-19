@@ -118,11 +118,11 @@
 
     <section class="top-grid actions-print-hide">
       <div class="card"><div class="card-title">Buscar local por cédula</div><div class="card-body">
-        <div class="search-row"><input id="buscarCedula" type="text" placeholder="Ingrese número de cédula"><button class="secondary" onclick="buscarPaciente()">🔍</button></div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;"><button class="primary" onclick="buscarPaciente()">🔍 Buscar Paciente</button><button class="secondary" onclick="nuevoPaciente()">⊕ Nuevo Paciente</button></div>
+        <div class="search-row"><input id="buscarCedula" type="text" placeholder="Ingrese número de cédula"><button type="button" class="secondary" onclick="buscarPaciente()">🔍</button></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;"><button type="button" class="primary" onclick="buscarPaciente()">🔍 Buscar Paciente</button><button type="button" class="secondary" onclick="nuevoPaciente()">⊕ Nuevo Paciente</button></div>
       </div></div>
       <div class="card"><div class="card-title">Nombre del archivo (automático)</div><div class="card-body"><div id="nombreArchivo" class="file-preview">— — —</div><div class="note">Se generará automáticamente con: CÉDULA_PRIMERAPELLIDO_SEGUNDOAPELLIDO</div></div></div>
-      <div class="card"><div class="card-title">Acciones</div><div class="card-body actions-grid"><button class="primary" onclick="guardarHistoriaDrive()">☁ Guardar en Drive</button><button class="primary" onclick="buscarPacienteDrive()">🔎 Buscar en Google Drive</button><button class="secondary" onclick="guardarHistoria()">💾 Guardar Local</button><button class="primary" onclick="generarPDF()">📄 PDF Historia Actual</button><button class="primary" onclick="generarHistoriaBlancoPDF()">📄 Historia en Blanco PDF</button><button class="primary" onclick="generarFormularioPaciente()">📝 Formulario para Paciente</button><button class="secondary" onclick="descargarJSON()">⬇ Descargar JSON</button><button class="secondary" onclick="importarJSONClick()">⬆ Importar Datos</button><input type="file" id="importFile" accept="application/json" style="display:none" onchange="importarJSON(event)"><button class="danger" onclick="eliminarPaciente()">🗑 Eliminar</button><button class="secondary" onclick="limpiarFormulario()">🧹 Limpiar</button><div id="driveStatus" class="drive-status full"></div></div></div></div>
+      <div class="card"><div class="card-title">Acciones</div><div class="card-body actions-grid"><button type="button" class="primary" onclick="guardarHistoriaDrive()">☁ Guardar en Drive</button><button type="button" class="primary" onclick="buscarPacienteDrive()">🔎 Buscar en Google Drive</button><button type="button" class="secondary" onclick="guardarHistoria()">💾 Guardar Local</button><button type="button" class="primary" onclick="generarPDF()">📄 PDF Historia Actual</button><button type="button" class="primary" onclick="generarHistoriaBlancoPDF()">📄 Historia en Blanco PDF</button><button type="button" class="primary" onclick="generarFormularioPaciente()">📝 Formulario para Paciente</button><button type="button" class="secondary" onclick="descargarJSON()">⬇ Descargar JSON</button><button type="button" class="secondary" onclick="importarJSONClick()">⬆ Importar Datos</button><input type="file" id="importFile" accept="application/json" style="display:none" onchange="importarJSON(event)"><button type="button" class="danger" onclick="eliminarPaciente()">🗑 Eliminar</button><button type="button" class="secondary" onclick="limpiarFormulario()">🧹 Limpiar</button><div id="driveStatus" class="drive-status full"></div></div></div></div>
     </section>
 
     <form id="formHistoria">
@@ -258,7 +258,7 @@
 
     </form>
 
-    <div class="footer"><span>HCV4.4 · Historia Clínica Odontológica Digital con Google Drive · </span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
+    <div class="footer"><span>Historia Clínica Odontológica Digital con Google Drive · </span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
   </div>
 
   <script>
@@ -291,7 +291,7 @@
       datos.evoluciones = evoluciones;
       datos.examenes = examenes;
       datos.nombreArchivo=obtenerNombreArchivo();
-            datos.fechaRegistro=new Date().toISOString();
+      datos.fechaRegistro=new Date().toISOString();
       return datos;
     }
 
@@ -470,31 +470,60 @@
     }
 
     async function buscarPacienteDrive() {
-      const c = String((buscarCedula.value || cedula.value || '')).replace(/\D/g, '');
-      if(!c){ alert('Ingrese una cédula para buscar en Google Drive.'); return; }
+      const campoBuscar = document.getElementById('buscarCedula');
+      const campoCedula = document.getElementById('cedula');
 
-      setDriveStatus('Buscando historia en Google Drive para la cédula ' + c + '...', 'info');
+      const candidatos = [];
+      const agregar = (v) => {
+        const limpio = String(v || '').replace(/\D/g, '');
+        if (limpio && !candidatos.includes(limpio)) candidatos.push(limpio);
+      };
+
+      // Primero usa el campo "Buscar local por cédula", luego el campo de cédula del formulario.
+      agregar(campoBuscar ? campoBuscar.value : '');
+      agregar(campoCedula ? campoCedula.value : '');
+
+      if(!candidatos.length){
+        alert('Ingrese una cédula para buscar en Google Drive.');
+        return;
+      }
+
+      setDriveStatus('Buscando historia en Google Drive para la cédula ' + candidatos[0] + '...', 'info');
 
       try {
-        const r = await buscarDriveJSONP(c);
-        console.log('Respuesta buscarHistoria Drive JSONP:', r);
+        let respuestaFinal = null;
+        let cedulaEncontrada = '';
 
-        if(r && r.ok && r.data) {
-          cargarDatosFormulario(r.data);
+        for (const c of candidatos) {
+          setDriveStatus('Consultando Google Drive: ' + c + '...', 'info');
+          const r = await buscarDriveJSONP(c);
+          console.log('Respuesta buscarHistoria Drive JSONP para ' + c + ':', r);
 
-          // Guardar copia local como respaldo inmediato después de recuperar desde Drive.
+          if (r && r.ok && r.data) {
+            respuestaFinal = r;
+            cedulaEncontrada = c;
+            break;
+          }
+
+          respuestaFinal = r;
+        }
+
+        if(respuestaFinal && respuestaFinal.ok && respuestaFinal.data) {
+          cargarDatosFormulario(respuestaFinal.data);
+
           try {
-            localStorage.setItem(VERSION_KEY + String(r.data.cedula || c).trim(), JSON.stringify(r.data));
+            const cedGuardar = String(respuestaFinal.data.cedula || cedulaEncontrada).trim();
+            if (cedGuardar) localStorage.setItem(VERSION_KEY + cedGuardar, JSON.stringify(respuestaFinal.data));
           } catch(e) {}
 
-          setDriveStatus('✓ Historia encontrada y cargada desde Google Drive · Carpeta: ' + (r.carpetaPaciente || r.data.nombreArchivo || ''), 'ok');
+          setDriveStatus('✓ Historia encontrada y cargada desde Google Drive · Carpeta: ' + (respuestaFinal.carpetaPaciente || respuestaFinal.data.nombreArchivo || ''), 'ok');
           alert('Paciente encontrado y cargado desde Google Drive.');
           return;
         }
 
-        const msg = (r && r.mensaje) ? r.mensaje : 'No se encontró historia clínica en Google Drive.';
-        setDriveStatus(msg + ' · Cédula buscada: ' + c, 'err');
-        alert(msg);
+        const msg = (respuestaFinal && respuestaFinal.mensaje) ? respuestaFinal.mensaje : 'No se encontró historia clínica en Google Drive.';
+        setDriveStatus(msg + ' · Cédula(s) consultada(s): ' + candidatos.join(', '), 'err');
+        alert(msg + '\n\nCédula(s) consultada(s): ' + candidatos.join(', '));
 
       } catch(err) {
         console.error('Error buscando en Drive:', err);
@@ -578,7 +607,7 @@
       const preguntaRows = preguntas.map((p,i)=>`<tr><td style="width:35px">${i+1}</td><td>${p}</td><td style="width:120px"><label class="yn"><span><input type="radio" name="p${i}"> Sí</span><span><input type="radio" name="p${i}"> No</span></label></td><td><input type="text" placeholder="Observaciones"></td></tr>`).join('');
       const enfHTML = enfermedades.map((e,i)=>`<label class="check"><input type="checkbox" id="enf${i}"> ${e}</label>`).join('');
       const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Formulario Paciente - Historia Clínica</title>${estilos}</head><body>
-        <div class="toolbar no-print"><button class="primary" onclick="actualizarNombre(); window.print();">📄 Generar PDF / Guardar</button><button class="secondary" onclick="actualizarNombre()">🔄 Actualizar nombre sugerido</button></div>
+        <div class="toolbar no-print"><button type="button" class="primary" onclick="actualizarNombre(); window.print();">📄 Generar PDF / Guardar</button><button type="button" class="secondary" onclick="actualizarNombre()">🔄 Actualizar nombre sugerido</button></div>
         <div class="page">
           <div class="header"><div>${logoSrc ? `<img src="${logoSrc}">` : ''}</div><div class="title"><h1>CENTRO ODONTOLÓGICO<br>DRA. CECILIA GALLARDO</h1><p>Formulario de Historia Clínica Odontológica para Paciente</p></div><div class="date">Fecha:<br>${hoy}</div></div>
           <div class="notice"><b>Instrucciones para el paciente:</b> complete la información solicitada, luego presione <b>“Generar PDF / Guardar”</b> y reenvíe el PDF al consultorio. Nombre sugerido del archivo: <span id="nombreSugerido" class="file-suggest">CEDULA_PRIMERAPELLIDO_SEGUNDOAPELLIDO</span></div>
