@@ -117,7 +117,7 @@
     </nav>
 
     <section class="top-grid actions-print-hide">
-      <div class="card"><div class="card-title">Buscar local por cédula</div><div class="card-body">
+      <div class="card"><div class="card-title">Buscar paciente por cédula</div><div class="card-body">
         <div class="search-row"><input id="buscarCedula" type="text" placeholder="Ingrese número de cédula"><button type="button" class="secondary" onclick="buscarPaciente()">🔍</button></div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;"><button type="button" class="primary" onclick="buscarPaciente()">🔍 Buscar Paciente</button><button type="button" class="secondary" onclick="nuevoPaciente()">⊕ Nuevo Paciente</button></div>
       </div></div>
@@ -333,14 +333,29 @@
       actualizarListaPacientes();
     }
 
-    function buscarPaciente() {
-      const c=buscarCedula.value.trim();
+    async function buscarPaciente() {
+      const c = (document.getElementById('buscarCedula')?.value || '').replace(/\D/g, '');
       if(!c){ alert('Ingrese una cédula para buscar.'); return; }
-      let guardado=localStorage.getItem(VERSION_KEY+c), origen='HCV3';
-      if(!guardado){ for(const k of VERSION_ANTERIOR_KEYS){ guardado=localStorage.getItem(k+c); if(guardado){ origen=k.replace('_',''); break; } } }
-      if(!guardado){ alert('No existe paciente guardado con esa cédula. Puede crearlo como nuevo paciente.'); return; }
-      cargarDatosFormulario(JSON.parse(guardado));
-      alert('Paciente encontrado y cargado desde ' + origen + '.');
+
+      // Primero intenta en el navegador local.
+      let guardado = localStorage.getItem(VERSION_KEY + c), origen = 'local';
+      if(!guardado){
+        for(const k of VERSION_ANTERIOR_KEYS){
+          guardado = localStorage.getItem(k + c);
+          if(guardado){ origen = 'local anterior'; break; }
+        }
+      }
+
+      if(guardado){
+        cargarDatosFormulario(JSON.parse(guardado));
+        setDriveStatus('✓ Paciente encontrado y cargado desde almacenamiento local.', 'ok');
+        alert('Paciente encontrado y cargado desde almacenamiento local.');
+        return;
+      }
+
+      // Si no está local, busca automáticamente en Google Drive.
+      setDriveStatus('No está en este navegador. Buscando automáticamente en Google Drive...', 'info');
+      await buscarPacienteDrive();
     }
 
     function setDriveStatus(msg, tipo='info') {
