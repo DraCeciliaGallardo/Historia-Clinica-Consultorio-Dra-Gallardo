@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HCV4.0 - Historia Clínica Odontológica con Google Drive</title>
+  <title>HCV4.1 - Historia Clínica Odontológica con Google Drive</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -258,7 +258,7 @@
 
     </form>
 
-    <div class="footer"><span>HCV4.0 · Historia Clínica Odontológica Digital con Google Drive · Versión 4.0</span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
+    <div class="footer"><span>HCV4.1 · Historia Clínica Odontológica Digital con Google Drive · Versión 4.1</span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
   </div>
 
   <script>
@@ -291,7 +291,7 @@
       datos.evoluciones = evoluciones;
       datos.examenes = examenes;
       datos.nombreArchivo=obtenerNombreArchivo();
-      datos.version='HCV4.0';
+      datos.version='HCV4.1';
       datos.fechaRegistro=new Date().toISOString();
       return datos;
     }
@@ -332,13 +332,59 @@
     }
 
     async function enviarDrive(payload) {
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+      // Comunicación compatible con GitHub Pages + Google Apps Script.
+      // Usamos un formulario oculto hacia un iframe y Apps Script responde con postMessage,
+      // evitando bloqueos CORS del navegador.
+      return new Promise((resolve) => {
+        const token = 'hcv_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const iframeName = 'iframe_' + token;
+        const iframe = document.createElement('iframe');
+        iframe.name = iframeName;
+        iframe.style.display = 'none';
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = APPS_SCRIPT_URL;
+        form.target = iframeName;
+        form.style.display = 'none';
+        form.enctype = 'application/x-www-form-urlencoded';
+
+        const inputPayload = document.createElement('input');
+        inputPayload.type = 'hidden';
+        inputPayload.name = 'payload';
+        inputPayload.value = JSON.stringify({ ...payload, _token: token });
+
+        const inputMode = document.createElement('input');
+        inputMode.type = 'hidden';
+        inputMode.name = 'responseMode';
+        inputMode.value = 'postMessage';
+
+        form.appendChild(inputPayload);
+        form.appendChild(inputMode);
+        document.body.appendChild(iframe);
+        document.body.appendChild(form);
+
+        const limpiar = () => {
+          window.removeEventListener('message', onMessage);
+          setTimeout(() => { iframe.remove(); form.remove(); }, 100);
+        };
+
+        const timeout = setTimeout(() => {
+          limpiar();
+          resolve({ ok:false, mensaje:'Tiempo de espera agotado comunicando con Google Drive.' });
+        }, 45000);
+
+        function onMessage(event) {
+          const data = event.data || {};
+          if(!data || data._token !== token) return;
+          clearTimeout(timeout);
+          limpiar();
+          resolve(data);
+        }
+
+        window.addEventListener('message', onMessage);
+        form.submit();
       });
-      const txt = await resp.text();
-      try { return JSON.parse(txt); } catch(e) { return { ok:false, mensaje:'Respuesta no válida del Apps Script: ' + txt.slice(0,150) }; }
     }
 
     async function guardarHistoriaDrive(silencioso=false) {
