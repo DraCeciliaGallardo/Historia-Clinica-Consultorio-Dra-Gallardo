@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HCV4.3 - Historia Clínica Odontológica con Google Drive</title>
+  <title>HCV4.4 - Historia Clínica Odontológica con Google Drive</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -258,7 +258,7 @@
 
     </form>
 
-    <div class="footer"><span>HCV4.2 · Historia Clínica Odontológica Digital con Google Drive · Versión 4.2</span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
+    <div class="footer"><span>HCV4.4 · Historia Clínica Odontológica Digital con Google Drive · Versión 4.4</span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
   </div>
 
   <script>
@@ -291,7 +291,7 @@
       datos.evoluciones = evoluciones;
       datos.examenes = examenes;
       datos.nombreArchivo=obtenerNombreArchivo();
-      datos.version='HCV4.3';
+      datos.version='HCV4.4';
       datos.fechaRegistro=new Date().toISOString();
       return datos;
     }
@@ -454,21 +454,16 @@
       setDriveStatus('Buscando historia en Google Drive...', 'info');
 
       try {
-        // HCV4.3: usamos el mismo canal POST/iframe que ya funcionó para GUARDAR.
-        // Así evitamos que GitHub/Chrome bloquee la respuesta por CORS o JSONP.
-        const r = await enviarDrive({ accion:'buscarHistoria', cedula:c });
+        // HCV4.4: la búsqueda usa JSONP por GET.
+        // Esto es lo mismo que ya comprobamos en el navegador con ?accion=buscarHistoria&cedula=...
+        // y permite leer la respuesta desde GitHub Pages sin bloqueo CORS.
+        const r = await buscarDriveJSONP(c);
 
-        console.log('Respuesta buscarHistoria Drive:', r);
+        console.log('Respuesta buscarHistoria Drive JSONP:', r);
 
         if(r && r.ok && r.data) {
           cargarDatosFormulario(r.data);
           buscarCedula.value = r.data.cedula || c;
-
-          // Refuerzo visual: si el navegador no refresca algún campo, lo colocamos explícitamente.
-          ['cedula','primerApellido','segundoApellido','nombres','direccion','telefono','fechaNacimiento','fechaPrimeraAtencion','referido','enfermedades','motivoConsulta'].forEach(id => {
-            const el = document.getElementById(id);
-            if(el && Object.prototype.hasOwnProperty.call(r.data, id)) el.value = r.data[id] || '';
-          });
 
           calcularEdad();
           actualizarNombreArchivo();
