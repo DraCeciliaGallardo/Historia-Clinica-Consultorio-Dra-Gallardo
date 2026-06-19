@@ -122,11 +122,31 @@
     .odonto-summary th { background: var(--violeta-suave); color: var(--violeta-oscuro); text-align: left; padding: 8px; border-bottom: 1px solid var(--violeta-linea); }
     .odonto-summary td { padding: 8px; border-bottom: 1px solid #eee; vertical-align: top; }
     .odonto-color { width: 14px; height: 14px; border-radius: 50%; display: inline-block; vertical-align: middle; border: 1px solid rgba(0,0,0,.18); }
+
+    /* HCV5 - Proforma integrada */
+    .proforma-card { margin-top: 10px; border: 1.5px solid var(--violeta-linea); }
+    .proforma-table { width:100%; border-collapse: collapse; font-size:12px; }
+    .proforma-table th { background: var(--violeta-suave); color: var(--violeta-oscuro); text-align:left; padding:9px 8px; border-bottom:1px solid var(--violeta-linea); }
+    .proforma-table td { padding:8px; border-bottom:1px solid #eee; vertical-align:middle; }
+    .proforma-table input { padding:7px 8px; font-size:12px; }
+    .proforma-total-box { width:360px; max-width:100%; margin-left:auto; margin-top:14px; background:#fbf7ff; border:1.8px solid var(--violeta-linea); border-radius:10px; padding:12px; }
+    .proforma-line { display:flex; justify-content:space-between; margin:6px 0; font-size:13px; }
+    .proforma-final { border-top:1px solid #c7b7ea; padding-top:9px; margin-top:8px; font-size:17px; font-weight:900; color:var(--violeta-oscuro); }
+    .proforma-pdf { background:#fff; color:#252344; padding:24px; font-family:Arial,Helvetica,sans-serif; }
+    .proforma-pdf h1 { color:#0F5DB8; margin:12px 0; font-size:30px; }
+    .proforma-pdf .cabecera { text-align:center; color:#8a6fc5; font-weight:900; font-size:22px; line-height:1.25; }
+    .proforma-pdf table { width:100%; border-collapse:collapse; margin-top:16px; font-size:13px; }
+    .proforma-pdf th { background:white; color:#0F5DB8; border-bottom:2px solid #0F5DB8; padding:8px; text-align:left; }
+    .proforma-pdf td { border-bottom:1px solid #d7d7df; padding:8px; text-align:left; }
+    .proforma-pdf .precio { text-align:right; color:#0F5DB8; font-weight:900; }
+    .proforma-pdf .total { width:320px; margin-left:auto; margin-top:18px; border:1.5px solid #8a6fc5; border-radius:10px; padding:12px; background:#fbf7ff; }
+
     @media (max-width: 1100px) { .odontograma-layout { grid-template-columns: 1fr; } }
 
     @media (max-width: 1100px) { .clinic-header, .top-grid, .grid-main, .nav { grid-template-columns: 1fr; } .date-card { justify-self: stretch; } .grid, .grid-2, .checks, .kpi-grid, .patient-resume { grid-template-columns: 1fr; } .clinic-name h1 { font-size: 26px; } }
     @media print { .top-grid, .nav, .saved-list, .actions-print-hide, button { display:none !important; } .page { max-width:none; margin:0; } body { background:white; } .clinic-header { box-shadow:none; } }
   </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
   <div class="page">
@@ -327,6 +347,31 @@
         </div>
       </section>
 
+
+      <section class="card proforma-card">
+        <div class="card-title evolution-title">💰 Proforma / Presupuesto del Tratamiento</div>
+        <div class="card-body">
+          <div class="note" style="margin-top:0;">La proforma se genera desde las piezas y tratamientos registrados en el odontograma. Puedes ajustar valores antes de generar el PDF.</div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin:12px 0;" class="actions-print-hide">
+            <button type="button" class="primary" onclick="generarProformaDesdeOdontograma()">🔄 Generar desde odontograma</button>
+            <button type="button" class="secondary" onclick="agregarLineaProforma()">➕ Agregar línea</button>
+            <button type="button" class="secondary" onclick="generarPDFProformaHCV()">📄 PDF Proforma</button>
+          </div>
+
+          <div id="contenedorProforma"></div>
+
+          <div class="proforma-total-box">
+            <div class="proforma-line"><span>Subtotal</span><b id="profSubtotal">$0.00</b></div>
+            <div class="proforma-line"><span>Descuento</span><input id="profDescuento" type="number" step="0.01" value="0" oninput="renderProforma()" style="width:120px;text-align:right;"></div>
+            <div class="proforma-line proforma-final"><span>Total</span><span id="profTotal">$0.00</span></div>
+          </div>
+
+          <label for="profObservacion" style="margin-top:12px;">Observación de la proforma</label>
+          <textarea id="profObservacion" placeholder="Condiciones, forma de pago, vigencia de la proforma, observaciones para el paciente..." oninput="sincronizarProformaCampos()"></textarea>
+        </div>
+      </section>
+
       <section class="card examenes-card">
         <div class="card-title evolution-title">📁 Exámenes, RX y Tomografías del Paciente</div>
         <div class="card-body">
@@ -361,6 +406,7 @@
     let evoluciones = [];
     let examenes = [];
     let odontograma = {};
+    let proforma = [];
     let piezaOdontoActiva = '';
     let editandoEvolucionIndex = null;
 
@@ -386,6 +432,9 @@
       datos.evoluciones = evoluciones;
       datos.examenes = examenes;
       datos.odontograma = odontograma;
+      datos.proforma = proforma;
+      datos.proformaDescuento = Number(document.getElementById('profDescuento')?.value || 0);
+      datos.proformaObservacion = document.getElementById('profObservacion')?.value || '';
       datos.nombreArchivo=obtenerNombreArchivo();
       datos.fechaRegistro=new Date().toISOString();
       return datos;
@@ -407,12 +456,16 @@
       evoluciones = Array.isArray(datos.evoluciones) ? datos.evoluciones : [];
       examenes = Array.isArray(datos.examenes) ? datos.examenes : [];
       odontograma = datos.odontograma && typeof datos.odontograma === 'object' ? datos.odontograma : {};
+      proforma = Array.isArray(datos.proforma) ? datos.proforma : [];
+      if (document.getElementById('profDescuento')) document.getElementById('profDescuento').value = datos.proformaDescuento || 0;
+      if (document.getElementById('profObservacion')) document.getElementById('profObservacion').value = datos.proformaObservacion || '';
 
       calcularEdad();
       actualizarNombreArchivo();
       renderEvoluciones();
       renderExamenes();
       renderOdontograma();
+      renderProforma();
       actualizarResumenPaciente();
       actualizarAlertasMedicas();
 
@@ -1036,6 +1089,152 @@
     }
 
 
+
+    function formatoUSD(valor) {
+      return '$' + (Number(valor || 0)).toFixed(2);
+    }
+
+    function sincronizarProformaCampos() {
+      // Solo mantiene los campos listos para que se incluyan al guardar en Drive.
+    }
+
+    function generarProformaDesdeOdontograma() {
+      const existentes = {};
+      (proforma || []).forEach((l, idx) => {
+        if (l && l.pieza) existentes[String(l.pieza)] = l;
+      });
+
+      const piezas = Object.keys(odontograma || {}).sort((a,b)=>Number(a)-Number(b));
+      proforma = piezas
+        .map(p => {
+          const o = odontograma[p] || {};
+          const anterior = existentes[p] || {};
+          const detalle = o.tratamiento || o.estado || '';
+          if (!detalle) return null;
+          return {
+            pieza: p,
+            detalle: anterior.detalle || detalle,
+            valor: anterior.valor || 0,
+            observacion: anterior.observacion || o.observacion || ''
+          };
+        })
+        .filter(Boolean);
+
+      renderProforma();
+    }
+
+    function agregarLineaProforma() {
+      proforma.push({ pieza:'', detalle:'', valor:0, observacion:'' });
+      renderProforma();
+    }
+
+    function actualizarLineaProforma(i, campo, valor) {
+      if (!proforma[i]) return;
+      proforma[i][campo] = campo === 'valor' ? Number(valor || 0) : valor;
+      renderProforma(false);
+    }
+
+    function eliminarLineaProforma(i) {
+      if (!confirm('¿Eliminar esta línea de la proforma?')) return;
+      proforma.splice(i, 1);
+      renderProforma();
+    }
+
+    function renderProforma(redibujarTabla = true) {
+      const cont = document.getElementById('contenedorProforma');
+      if (!cont) return;
+
+      if (redibujarTabla) {
+        if (!proforma || !proforma.length) {
+          cont.innerHTML = '<div class="empty-evolution">Sin líneas de proforma. Genere desde el odontograma o agregue una línea manual.</div>';
+        } else {
+          cont.innerHTML = `
+            <table class="proforma-table">
+              <thead><tr><th>Pieza</th><th>Detalle / Tratamiento</th><th>Valor</th><th>Observación</th><th></th></tr></thead>
+              <tbody>
+                ${proforma.map((l, i) => `
+                  <tr>
+                    <td style="width:90px;"><input value="${escapar(l.pieza || '')}" onchange="actualizarLineaProforma(${i}, 'pieza', this.value)"></td>
+                    <td><input value="${escapar(l.detalle || '')}" onchange="actualizarLineaProforma(${i}, 'detalle', this.value)"></td>
+                    <td style="width:130px;"><input type="number" step="0.01" value="${Number(l.valor || 0)}" onchange="actualizarLineaProforma(${i}, 'valor', this.value)"></td>
+                    <td><input value="${escapar(l.observacion || '')}" onchange="actualizarLineaProforma(${i}, 'observacion', this.value)"></td>
+                    <td style="width:80px;"><button type="button" class="mini-btn danger" onclick="eliminarLineaProforma(${i})">Eliminar</button></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>`;
+        }
+      }
+
+      const subtotal = (proforma || []).reduce((acc, l) => acc + Number(l.valor || 0), 0);
+      const descuento = Number(document.getElementById('profDescuento')?.value || 0);
+      const total = Math.max(0, subtotal - descuento);
+      const subEl = document.getElementById('profSubtotal');
+      const totalEl = document.getElementById('profTotal');
+      if (subEl) subEl.textContent = formatoUSD(subtotal);
+      if (totalEl) totalEl.textContent = formatoUSD(total);
+    }
+
+    function generarPDFProformaHCV() {
+      if (!proforma || !proforma.length) {
+        generarProformaDesdeOdontograma();
+      }
+      if (!proforma || !proforma.length) {
+        alert('No hay tratamientos para generar la proforma.');
+        return;
+      }
+
+      const paciente = `${nombres?.value || ''} ${primerApellido?.value || ''} ${segundoApellido?.value || ''}`.trim() || 'Paciente';
+      const ced = cedula?.value || '';
+      const fecha = new Date().toLocaleDateString('es-EC');
+      const subtotal = proforma.reduce((acc, l) => acc + Number(l.valor || 0), 0);
+      const descuento = Number(document.getElementById('profDescuento')?.value || 0);
+      const total = Math.max(0, subtotal - descuento);
+      const obs = document.getElementById('profObservacion')?.value || '';
+
+      const div = document.createElement('div');
+      div.className = 'proforma-pdf';
+      div.innerHTML = `
+        <div class="cabecera">
+          CENTRO ODONTOLÓGICO<br>DRA. CECILIA GALLARDO R.
+        </div>
+        <h1>Presupuesto</h1>
+        <div><b>Paciente:</b> ${escapar(paciente)}</div>
+        <div><b>Cédula:</b> ${escapar(ced)}</div>
+        <div><b>Fecha:</b> ${escapar(fecha)}</div>
+
+        <table>
+          <thead><tr><th>Pieza</th><th>Detalle</th><th class="precio">Valor</th></tr></thead>
+          <tbody>
+            ${proforma.map(l => `
+              <tr>
+                <td>${escapar(l.pieza || '')}</td>
+                <td>${escapar(l.detalle || '')}${l.observacion ? '<br><small>' + escapar(l.observacion) + '</small>' : ''}</td>
+                <td class="precio">${formatoUSD(l.valor || 0)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+
+        <div class="total">
+          <div class="proforma-line"><span>Subtotal</span><b>${formatoUSD(subtotal)}</b></div>
+          <div class="proforma-line"><span>Descuento</span><b>${formatoUSD(descuento)}</b></div>
+          <div class="proforma-line proforma-final"><span>Total</span><span>${formatoUSD(total)}</span></div>
+        </div>
+
+        ${obs ? '<div style="margin-top:18px;border:1px solid #ddd;border-radius:10px;padding:10px;"><b>Observación:</b><br>' + escapar(obs) + '</div>' : ''}
+        <div style="margin-top:34px;text-align:center;">_________________________________<br>Dra. Cecilia Gallardo R.</div>
+      `;
+
+      const opt = {
+        margin: 0.35,
+        filename: `PROFORMA_${(ced || paciente).replace(/\s+/g,'_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(div).save();
+    }
+
+
     function actualizarResumenPaciente() {
       if(!document.getElementById('resumenPaciente')) return;
       resumenPaciente.textContent = `${nombres?.value || ''} ${primerApellido?.value || ''} ${segundoApellido?.value || ''}`.trim() || '—';
@@ -1092,7 +1291,7 @@
 
     document.addEventListener('input', function(e){ actualizarAlertasMedicas(); if(['cedula','primerApellido','segundoApellido','nombres','fechaNacimiento'].includes(e.target.id)){ actualizarNombreArchivo(); actualizarResumenPaciente(); } });
     document.addEventListener('change', function(){ actualizarAlertasMedicas(); });
-    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); actualizarAlertasMedicas();
+    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); renderProforma(); actualizarAlertasMedicas();
   </script>
 </body>
 </html>
