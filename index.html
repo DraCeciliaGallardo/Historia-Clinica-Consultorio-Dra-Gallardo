@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Historia Clínica Odontológica con Google Drive</title>
+  <title>HCV5 Integral - Historia Clínica con Odontograma y Google Drive</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -96,6 +96,34 @@
     .empty-examen { color: #66617c; background: #faf8ff; border: 1px dashed var(--violeta-linea); padding: 14px; border-radius: 6px; text-align: center; font-size: 13px; }
     .link-cell a { color: var(--violeta-oscuro); font-weight: 900; text-decoration: none; }
     .link-cell a:hover { text-decoration: underline; }
+
+    /* HCV5 - Odontograma clínico integrado */
+    .odontograma-card { margin-top: 10px; border: 1.5px solid var(--violeta-linea); }
+    .odontograma-layout { display: grid; grid-template-columns: 1.3fr .9fr; gap: 14px; align-items: start; }
+    .odontograma-container { background: #fff; border: 1px solid var(--violeta-linea); border-radius: 8px; padding: 12px; overflow-x: auto; }
+    .odontograma-row { display: flex; justify-content: center; gap: 5px; margin: 7px 0; min-width: 640px; }
+    .quadrant-gap { width: 24px; flex: 0 0 24px; }
+    .tooth { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 42px; height: 55px; cursor: pointer; font-size: 8px; font-weight: bold; text-align: center; user-select: none; }
+    .tooth-shape { width: 35px; height: 35px; display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; gap: 1px; padding: 2px; border: 1px solid #8a8a8a; border-radius: 9px; background: #fdfdfd; transition: .15s; }
+    .tooth.activa .tooth-shape { border: 3px solid #252344; box-shadow: 0 0 0 3px rgba(138,111,197,.18); }
+    .surface { background: #fff; border: 1px solid #d0d0d0; }
+    .surface.top { grid-column: 2; grid-row: 1; border-radius: 4px 4px 1px 1px; }
+    .surface.left { grid-column: 1; grid-row: 2; border-radius: 4px 1px 1px 4px; }
+    .surface.center { grid-column: 2; grid-row: 2; border-radius: 2px; }
+    .surface.right { grid-column: 3; grid-row: 2; border-radius: 1px 4px 4px 1px; }
+    .surface.bottom { grid-column: 2; grid-row: 3; border-radius: 1px 1px 4px 4px; }
+    .tooth-number { margin-top: 2px; font-size: 9px; line-height: 1; color: #40324F; }
+    .odonto-tools { background: linear-gradient(90deg, #faf8ff, #efe9fb); border: 1px solid var(--violeta-linea); border-radius: 8px; padding: 12px; }
+    .odonto-selected { font-size: 18px; color: var(--violeta-oscuro); font-weight: 900; margin-bottom: 10px; }
+    .odonto-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .odonto-legend span { display: inline-block; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 900; border: 1px solid rgba(0,0,0,.08); }
+    .odonto-summary { margin-top: 14px; }
+    .odonto-summary table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .odonto-summary th { background: var(--violeta-suave); color: var(--violeta-oscuro); text-align: left; padding: 8px; border-bottom: 1px solid var(--violeta-linea); }
+    .odonto-summary td { padding: 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+    .odonto-color { width: 14px; height: 14px; border-radius: 50%; display: inline-block; vertical-align: middle; border: 1px solid rgba(0,0,0,.18); }
+    @media (max-width: 1100px) { .odontograma-layout { grid-template-columns: 1fr; } }
+
     @media (max-width: 1100px) { .clinic-header, .top-grid, .grid-main, .nav { grid-template-columns: 1fr; } .date-card { justify-self: stretch; } .grid, .grid-2, .checks, .kpi-grid, .patient-resume { grid-template-columns: 1fr; } .clinic-name h1 { font-size: 26px; } }
     @media print { .top-grid, .nav, .saved-list, .actions-print-hide, button { display:none !important; } .page { max-width:none; margin:0; } body { background:white; } .clinic-header { box-shadow:none; } }
   </style>
@@ -234,6 +262,71 @@
         </div>
       </section>
 
+
+      <section class="card odontograma-card">
+        <div class="card-title evolution-title">🦷 Odontograma Clínico y Plan de Tratamiento</div>
+        <div class="card-body">
+          <div class="patient-resume" style="margin-top:0;">
+            <div><b>Paciente:</b> <span id="odontoPacienteResumen">—</span></div>
+            <div><b>Cédula:</b> <span id="odontoCedulaResumen">—</span></div>
+            <div><b>Pieza seleccionada:</b> <span id="piezaSeleccionadaTxt">—</span></div>
+            <div><b>Piezas marcadas:</b> <span id="totalPiezasMarcadas">0</span></div>
+          </div>
+
+          <div class="odontograma-layout">
+            <div class="odontograma-container">
+              <div id="odontograma"></div>
+              <div class="odonto-legend">
+                <span style="background:#ffffff;color:#252344;">Sano</span>
+                <span style="background:#E53935;color:white;">Caries</span>
+                <span style="background:#B8A4D4;color:white;">Restauración</span>
+                <span style="background:#1565C0;color:white;">Corona</span>
+                <span style="background:#2E7D32;color:white;">Implante</span>
+                <span style="background:#EF6C00;color:white;">Endodoncia</span>
+                <span style="background:#616161;color:white;">Ausente</span>
+                <span style="background:#FBC02D;color:#252344;">Carilla</span>
+                <span style="background:#9C27B0;color:white;">Prótesis</span>
+              </div>
+            </div>
+
+            <div class="odonto-tools">
+              <div class="odonto-selected">Pieza: <span id="piezaActivaLabel">Seleccione una pieza</span></div>
+              <label for="odontoEstado">Estado / diagnóstico</label>
+              <select id="odontoEstado">
+                <option value="">Sano / sin novedad</option>
+                <option value="Caries">Caries</option>
+                <option value="Restauración">Restauración</option>
+                <option value="Corona">Corona</option>
+                <option value="Implante">Implante</option>
+                <option value="Endodoncia">Endodoncia</option>
+                <option value="Ausente">Ausente / falta pieza</option>
+                <option value="Carilla">Carilla</option>
+                <option value="Prótesis">Prótesis</option>
+                <option value="Extracción indicada">Extracción indicada</option>
+              </select>
+
+              <label for="odontoTratamiento" style="margin-top:10px;">Tratamiento propuesto / realizado</label>
+              <input id="odontoTratamiento" type="text" placeholder="Ej.: resina, corona, limpieza, endodoncia...">
+
+              <label for="odontoObservacion" style="margin-top:10px;">Observación</label>
+              <textarea id="odontoObservacion" placeholder="Detalle clínico, material, evolución, pendiente, etc."></textarea>
+
+              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;" class="actions-print-hide">
+                <button type="button" class="primary" onclick="guardarPiezaOdontograma()">💾 Guardar pieza</button>
+                <button type="button" class="secondary" onclick="limpiarPiezaOdontograma()">🧹 Limpiar pieza</button>
+              </div>
+
+              <div class="note">El odontograma se guarda dentro de la historia clínica del paciente en Google Drive.</div>
+            </div>
+          </div>
+
+          <div class="odonto-summary">
+            <div class="card-title" style="border-radius:6px 6px 0 0;">Resumen de diagnóstico y tratamientos por pieza</div>
+            <div id="resumenOdontograma"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="card examenes-card">
         <div class="card-title evolution-title">📁 Exámenes, RX y Tomografías del Paciente</div>
         <div class="card-body">
@@ -267,6 +360,8 @@
     const VERSION_ANTERIOR_KEYS = ['HCV21_', 'HCV2_', 'HCV1_'];
     let evoluciones = [];
     let examenes = [];
+    let odontograma = {};
+    let piezaOdontoActiva = '';
     let editandoEvolucionIndex = null;
 
     const CAMPOS_TEXTO = ['cedula','primerApellido','segundoApellido','nombres','direccion','telefono','fechaNacimiento','edad','referido','fechaPrimeraAtencion','enfermedades','motivoConsulta','obsHospitalizado','obsMedicamentos','obsTomaMedicamento','obsAlergiaMedicamentos','obsHemorragias','obsAnestesia','obsEmbarazo','obsComio','obsTension','obsFuma','sisOtrosTexto','obsSistemicas','ultimaVisitaOdontologica','motivoActual','otrosOdontoTexto','obsOdontologicas','responsable','parentescoResponsable','fechaConsentimiento','obsConsentimiento'];
@@ -290,6 +385,7 @@
       RADIO_GROUPS.forEach(c=>datos[c]=getRadio(c));
       datos.evoluciones = evoluciones;
       datos.examenes = examenes;
+      datos.odontograma = odontograma;
       datos.nombreArchivo=obtenerNombreArchivo();
       datos.fechaRegistro=new Date().toISOString();
       return datos;
@@ -310,11 +406,13 @@
 
       evoluciones = Array.isArray(datos.evoluciones) ? datos.evoluciones : [];
       examenes = Array.isArray(datos.examenes) ? datos.examenes : [];
+      odontograma = datos.odontograma && typeof datos.odontograma === 'object' ? datos.odontograma : {};
 
       calcularEdad();
       actualizarNombreArchivo();
       renderEvoluciones();
       renderExamenes();
+      renderOdontograma();
       actualizarResumenPaciente();
       actualizarAlertasMedicas();
 
@@ -805,6 +903,139 @@
       await guardarHistoriaDrive(true);
     }
 
+
+    const ODONTO_COLORES = {
+      '': '#ffffff',
+      'Caries': '#E53935',
+      'Restauración': '#B8A4D4',
+      'Corona': '#1565C0',
+      'Implante': '#2E7D32',
+      'Endodoncia': '#EF6C00',
+      'Ausente': '#616161',
+      'Carilla': '#FBC02D',
+      'Prótesis': '#9C27B0',
+      'Extracción indicada': '#D81B60'
+    };
+
+    const ODONTO_FILAS = [
+      ['18','17','16','15','14','13','12','11','GAP','21','22','23','24','25','26','27','28'],
+      ['48','47','46','45','44','43','42','41','GAP','31','32','33','34','35','36','37','38']
+    ];
+
+    function crearDienteHTML(numero) {
+      if (numero === 'GAP') return '<div class="quadrant-gap"></div>';
+      const info = odontograma[numero] || {};
+      const color = ODONTO_COLORES[info.estado || ''] || '#ffffff';
+      return `
+        <div class="tooth ${piezaOdontoActiva === numero ? 'activa' : ''}" onclick="seleccionarPiezaOdontograma('${numero}')" title="Pieza ${numero}">
+          <div class="tooth-shape" style="background:${color}">
+            <div class="surface top" style="background:${color}"></div>
+            <div class="surface left" style="background:${color}"></div>
+            <div class="surface center" style="background:${color}"></div>
+            <div class="surface right" style="background:${color}"></div>
+            <div class="surface bottom" style="background:${color}"></div>
+          </div>
+          <div class="tooth-number">${numero}</div>
+        </div>`;
+    }
+
+    function renderOdontograma() {
+      const cont = document.getElementById('odontograma');
+      if (!cont) return;
+      cont.innerHTML = ODONTO_FILAS.map(fila =>
+        `<div class="odontograma-row">${fila.map(crearDienteHTML).join('')}</div>`
+      ).join('');
+      renderResumenOdontograma();
+      actualizarResumenOdontoPaciente();
+    }
+
+    function seleccionarPiezaOdontograma(numero) {
+      piezaOdontoActiva = numero;
+      const info = odontograma[numero] || {};
+      document.getElementById('piezaActivaLabel').textContent = numero;
+      document.getElementById('piezaSeleccionadaTxt').textContent = numero;
+      document.getElementById('odontoEstado').value = info.estado || '';
+      document.getElementById('odontoTratamiento').value = info.tratamiento || '';
+      document.getElementById('odontoObservacion').value = info.observacion || '';
+      renderOdontograma();
+    }
+
+    function guardarPiezaOdontograma() {
+      if (!piezaOdontoActiva) {
+        alert('Seleccione primero una pieza dental en el odontograma.');
+        return;
+      }
+      const estado = document.getElementById('odontoEstado').value || '';
+      const tratamiento = document.getElementById('odontoTratamiento').value || '';
+      const observacion = document.getElementById('odontoObservacion').value || '';
+
+      if (!estado && !tratamiento && !observacion) {
+        delete odontograma[piezaOdontoActiva];
+      } else {
+        odontograma[piezaOdontoActiva] = {
+          pieza: piezaOdontoActiva,
+          estado,
+          tratamiento,
+          observacion,
+          fechaActualizacion: new Date().toISOString()
+        };
+      }
+      renderOdontograma();
+    }
+
+    function limpiarPiezaOdontograma() {
+      if (!piezaOdontoActiva) {
+        alert('Seleccione primero una pieza dental.');
+        return;
+      }
+      if (!confirm('¿Limpiar la información de la pieza ' + piezaOdontoActiva + '?')) return;
+      delete odontograma[piezaOdontoActiva];
+      document.getElementById('odontoEstado').value = '';
+      document.getElementById('odontoTratamiento').value = '';
+      document.getElementById('odontoObservacion').value = '';
+      renderOdontograma();
+    }
+
+    function renderResumenOdontograma() {
+      const cont = document.getElementById('resumenOdontograma');
+      if (!cont) return;
+      const piezas = Object.keys(odontograma || {}).sort((a,b)=>Number(a)-Number(b));
+      document.getElementById('totalPiezasMarcadas').textContent = String(piezas.length);
+
+      if (!piezas.length) {
+        cont.innerHTML = '<div class="empty-evolution">Sin piezas registradas todavía.</div>';
+        return;
+      }
+
+      cont.innerHTML = `
+        <table>
+          <thead><tr><th>Pieza</th><th>Estado</th><th>Tratamiento</th><th>Observación</th><th></th></tr></thead>
+          <tbody>
+            ${piezas.map(p => {
+              const i = odontograma[p] || {};
+              const color = ODONTO_COLORES[i.estado || ''] || '#ffffff';
+              return `<tr>
+                <td><b>${escapar(p)}</b></td>
+                <td><span class="odonto-color" style="background:${color}"></span> ${escapar(i.estado || 'Sano')}</td>
+                <td>${escapar(i.tratamiento || '—')}</td>
+                <td>${escapar(i.observacion || '—')}</td>
+                <td><button type="button" class="mini-btn secondary" onclick="seleccionarPiezaOdontograma('${p}')">Editar</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    function actualizarResumenOdontoPaciente() {
+      const paciente = `${nombres?.value || ''} ${primerApellido?.value || ''} ${segundoApellido?.value || ''}`.trim() || '—';
+      const ced = cedula?.value || '—';
+      const p = document.getElementById('odontoPacienteResumen');
+      const c = document.getElementById('odontoCedulaResumen');
+      if (p) p.textContent = paciente;
+      if (c) c.textContent = ced;
+    }
+
+
     function actualizarResumenPaciente() {
       if(!document.getElementById('resumenPaciente')) return;
       resumenPaciente.textContent = `${nombres?.value || ''} ${primerApellido?.value || ''} ${segundoApellido?.value || ''}`.trim() || '—';
@@ -817,6 +1048,7 @@
       const proximas = evoluciones.map(e=>e.proximaCita).filter(Boolean).sort();
       kpiProximaCita.textContent = proximas.length ? formatearFecha(proximas[0]) : '—';
       actualizarAlertasMedicas();
+      actualizarResumenOdontoPaciente();
     }
 
     function agregarAlerta(lista, condicion, texto) { if(condicion) lista.push(texto); }
@@ -860,7 +1092,7 @@
 
     document.addEventListener('input', function(e){ actualizarAlertasMedicas(); if(['cedula','primerApellido','segundoApellido','nombres','fechaNacimiento'].includes(e.target.id)){ actualizarNombreArchivo(); actualizarResumenPaciente(); } });
     document.addEventListener('change', function(){ actualizarAlertasMedicas(); });
-    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); actualizarAlertasMedicas();
+    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); actualizarAlertasMedicas();
   </script>
 </body>
 </html>
