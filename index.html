@@ -1,837 +1,1516 @@
-from pathlib import Path
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --violeta: #8a6fc5;
+      --violeta-oscuro: #6f55ad;
+      --violeta-suave: #efe9fb;
+      --violeta-linea: #c7b7ea;
+      --texto: #252344;
+      --gris: #f7f7fb;
+      --borde: #ddd8ec;
+      --verde: #32c776;
+    }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: linear-gradient(180deg, #ffffff, #f8f6fd); color: var(--texto); }
+    .page { max-width: 1520px; margin: 10px auto 18px; padding: 0 16px; }
+    .clinic-header { border: 1.5px solid var(--violeta); border-radius: 8px; padding: 14px 20px; display: grid; grid-template-columns: 240px 1.25fr 1fr 170px; gap: 22px; align-items: center; background: #fff; box-shadow: 0 4px 18px rgba(111,85,173,.08); }
+    .logo-box img { width: 220px; max-height: 100px; object-fit: contain; display: block; }
+    .clinic-name h1 { margin: 0; color: var(--violeta); font-weight: 900; letter-spacing: 1.5px; line-height: 1.2; font-size: 34px; }
+    .clinic-name .contact-line { margin-top: 12px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 18px; }
+    .phone { font-weight: 900; font-size: 24px; color: #000; }
+    .dot { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #a9f3c2, #13ad58); display: inline-block; box-shadow: 0 0 8px rgba(42,199,116,.45); }
+    .ig { color: #2e294d; font-size: 17px; }
+    .address { border-left: 1px solid #eee; padding-left: 22px; line-height: 1.55; font-size: 15px; color: #39355a; }
+    .address .pin { color: var(--violeta); font-size: 26px; margin-right: 8px; }
+    .date-card { justify-self: end; border: 1px solid var(--violeta-linea); background: var(--violeta-suave); border-radius: 8px; padding: 14px 16px; min-width: 150px; text-align: center; color: var(--violeta-oscuro); }
+    .date-card small { display: block; color: #5f5878; margin-bottom: 8px; }
+    .date-card strong { font-size: 18px; }
+    .nav { margin: 10px 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; background: linear-gradient(90deg, var(--violeta-oscuro), var(--violeta)); color: white; border-radius: 5px; overflow: hidden; box-shadow: 0 3px 12px rgba(111,85,173,.20); }
+    .nav div { padding: 14px 12px; text-align: center; font-weight: 800; font-size: 13px; border-right: 1px solid rgba(255,255,255,.20); }
+    .nav span { font-size: 22px; vertical-align: middle; margin-right: 8px; }
+    .top-grid { display: grid; grid-template-columns: 1.1fr 1.15fr 1.35fr; gap: 12px; margin-bottom: 10px; }
+    .card { background: white; border: 1px solid var(--borde); border-radius: 7px; overflow: hidden; box-shadow: 0 2px 10px rgba(41,35,68,.04); }
+    .card-title { background: linear-gradient(90deg, #f3eefc, #e6ddf8); color: var(--violeta-oscuro); font-weight: 900; padding: 10px 14px; font-size: 14px; text-transform: uppercase; }
+    .card-body { padding: 13px 14px; }
+    .grid-main { display: grid; grid-template-columns: 1fr .98fr; gap: 10px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px 14px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 12px; color: var(--violeta-oscuro); font-weight: 900; margin-bottom: 6px; text-transform: uppercase; }
+    input, textarea, select { width: 100%; border: 1px solid #d7d2e4; border-radius: 5px; padding: 10px 10px; font-size: 13px; outline: none; background: white; color: var(--texto); }
+    input:focus, textarea:focus, select:focus { border-color: var(--violeta); box-shadow: 0 0 0 3px rgba(138,111,197,.14); }
+    textarea { min-height: 50px; resize: vertical; }
+    .readonly { background: #eeeeef; text-align: center; font-weight: 800; }
+    .search-row { display: grid; grid-template-columns: 1fr 44px; gap: 8px; }
+    .file-preview { padding: 14px; border: 1px solid var(--violeta-linea); border-radius: 6px; background: linear-gradient(90deg, #faf8ff, #efe9fb); min-height: 48px; font-weight: 900; text-align: center; color: #4a4269; font-size: 18px; letter-spacing: 2px; }
+    .note { font-size: 11px; color: #66617c; margin-top: 10px; }
+    .actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    button { border: 1px solid transparent; border-radius: 6px; padding: 12px 14px; font-weight: 900; cursor: pointer; font-size: 13px; }
+    .primary { background: linear-gradient(90deg, var(--violeta-oscuro), var(--violeta)); color: #fff; }
+    .secondary { background: white; color: var(--violeta-oscuro); border-color: var(--violeta-linea); }
+    .danger { background: #fff4f4; color: #a92828; border-color: #efbcbc; }
+    .info-line { background: var(--violeta-suave); border-top: 1px solid var(--borde); padding: 9px 14px; color: #6f55ad; font-size: 12px; }
+    .medical-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .medical-table th { color: var(--violeta-oscuro); text-align: left; padding: 7px 6px; }
+    .medical-table td { padding: 5px 6px; vertical-align: middle; }
+    .medical-table input[type="radio"] { width: 16px; height: 16px; }
+    .medical-table input[type="text"] { padding: 7px 8px; }
+    .checks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 18px; font-size: 12px; }
+    .check-item { display: flex; gap: 7px; align-items: center; color: #252344; }
+    .check-item input { width: auto; }
+    .footer { margin-top: 10px; padding: 9px 14px; color: white; border-radius: 5px; background: linear-gradient(90deg, var(--violeta-oscuro), var(--violeta)); display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+    .saved-list ul { margin: 4px 0 0; padding-left: 18px; max-height: 90px; overflow:auto; }
 
-import re, json
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0; }
+    .kpi-card { background: #fff; border: 1px solid var(--violeta-linea); border-radius: 8px; padding: 13px 14px; box-shadow: 0 2px 10px rgba(41,35,68,.04); }
+    .kpi-card small { display:block; text-transform: uppercase; color: var(--violeta-oscuro); font-weight: 900; font-size: 11px; margin-bottom: 6px; }
+    .kpi-card strong { display:block; color: #2e294d; font-size: 20px; line-height: 1.2; }
+    .evolution-card { margin-top: 10px; border: 1.5px solid var(--violeta-linea); }
+    .evolution-title { background: linear-gradient(90deg, var(--violeta-oscuro), var(--violeta)); color: white; font-size: 15px; }
+    .evolution-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .evolution-table th { background: var(--violeta-suave); color: var(--violeta-oscuro); text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--violeta-linea); }
+    .evolution-table td { padding: 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+    .mini-btn { padding: 7px 9px; font-size: 11px; margin: 2px; border-radius: 5px; }
+    .empty-evolution { color: #66617c; background: #faf8ff; border: 1px dashed var(--violeta-linea); padding: 14px; border-radius: 6px; text-align: center; font-size: 13px; }
+    .patient-resume { background: linear-gradient(90deg, #faf8ff, #efe9fb); border: 1px solid var(--violeta-linea); border-radius: 8px; padding: 12px 14px; margin: 10px 0; display: grid; grid-template-columns: 1.4fr .7fr .7fr .7fr; gap: 10px; align-items: center; }
+    .patient-resume b { color: var(--violeta-oscuro); }
+    .alertas-medicas { margin: 10px 0; border: 1.5px solid #efbcbc; background: #fff7f7; color: #7f1d1d; border-radius: 8px; padding: 12px 14px; display: none; }
+    .alertas-medicas strong { display: block; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; }
+    .alert-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .alert-tag { background: #ffe1e1; border: 1px solid #efbcbc; border-radius: 999px; padding: 7px 10px; font-weight: 900; font-size: 12px; color: #8a1f1f; }
+    .alertas-ok { margin: 10px 0; border: 1px solid #cdebd9; background: #f3fff7; color: #1f6a3c; border-radius: 8px; padding: 10px 14px; font-weight: 800; font-size: 12px; }
 
-hcv_path = Path("/mnt/data/index_HCV5_integral_odontograma_drive.html")
+    .drive-status { margin-top: 10px; padding: 9px 12px; border-radius: 6px; font-size: 12px; font-weight: 800; display:none; }
+    .drive-status.ok { display:block; background:#f3fff7; border:1px solid #cdebd9; color:#1f6a3c; }
+    .drive-status.err { display:block; background:#fff4f4; border:1px solid #efbcbc; color:#8a1f1f; }
+    .drive-status.info { display:block; background:#faf8ff; border:1px solid var(--violeta-linea); color:var(--violeta-oscuro); }
+    .examenes-card { margin-top: 10px; border: 1.5px solid var(--violeta-linea); }
+    .examenes-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .examenes-table th { background: var(--violeta-suave); color: var(--violeta-oscuro); text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--violeta-linea); }
+    .examenes-table td { padding: 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+    .empty-examen { color: #66617c; background: #faf8ff; border: 1px dashed var(--violeta-linea); padding: 14px; border-radius: 6px; text-align: center; font-size: 13px; }
+    .link-cell a { color: var(--violeta-oscuro); font-weight: 900; text-decoration: none; }
+    .link-cell a:hover { text-decoration: underline; }
 
-if not hcv_path.exists():
-
-    hcv_path = Path("/mnt/data/index (15).html")
-
-proforma_path = Path("/mnt/data/index (18).html")
-
-hcv = hcv_path.read_text(encoding="utf-8", errors="ignore")
-
-prof = proforma_path.read_text(encoding="utf-8", errors="ignore")
-
-# Clean prior simple proforma if present from previous version
-
-start = hcv.find('      <section class="card proforma-card">')
-
-if start != -1:
-
-    end = hcv.find('      <section class="card examenes-card">', start)
-
-    if end != -1:
-
-        hcv = hcv[:start] + hcv[end:]
-
-# Remove previous simple proforma CSS if present
-
-hcv = re.sub(r"\n\s*/\* HCV5 - Proforma integrada \*/[\s\S]*?(?=\n\s*@media \(max-width: 1100px\))", "\n", hcv)
-
-# Remove prior simple proforma JS if present
-
-hcv = re.sub(r"\n\s*function formatoUSD\(valor\)[\s\S]*?(?=\n\s*function actualizarResumenPaciente\(\))", "\n", hcv)
-
-# Ensure html2pdf is included
-
-if "html2pdf.bundle.min.js" not in hcv:
-
-    hcv = hcv.replace("</head>", '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>\n</head>', 1)
-
-# Add CSS for advanced budget module
-
-css = r"""
+    /* HCV5 - Odontograma clínico integrado */
+    .odontograma-card { margin-top: 10px; border: 1.5px solid var(--violeta-linea); }
+    .odontograma-layout { display: grid; grid-template-columns: 1.3fr .9fr; gap: 14px; align-items: start; }
+    .odontograma-container { background: #fff; border: 1px solid var(--violeta-linea); border-radius: 8px; padding: 12px; overflow-x: auto; }
+    .odontograma-row { display: flex; justify-content: center; gap: 5px; margin: 7px 0; min-width: 640px; }
+    .quadrant-gap { width: 24px; flex: 0 0 24px; }
+    .tooth { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 42px; height: 55px; cursor: pointer; font-size: 8px; font-weight: bold; text-align: center; user-select: none; }
+    .tooth-shape { width: 35px; height: 35px; display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; gap: 1px; padding: 2px; border: 1px solid #8a8a8a; border-radius: 9px; background: #fdfdfd; transition: .15s; }
+    .tooth.activa .tooth-shape { border: 3px solid #252344; box-shadow: 0 0 0 3px rgba(138,111,197,.18); }
+    .surface { background: #fff; border: 1px solid #d0d0d0; }
+    .surface.top { grid-column: 2; grid-row: 1; border-radius: 4px 4px 1px 1px; }
+    .surface.left { grid-column: 1; grid-row: 2; border-radius: 4px 1px 1px 4px; }
+    .surface.center { grid-column: 2; grid-row: 2; border-radius: 2px; }
+    .surface.right { grid-column: 3; grid-row: 2; border-radius: 1px 4px 4px 1px; }
+    .surface.bottom { grid-column: 2; grid-row: 3; border-radius: 1px 1px 4px 4px; }
+    .tooth-number { margin-top: 2px; font-size: 9px; line-height: 1; color: #40324F; }
+    .odonto-tools { background: linear-gradient(90deg, #faf8ff, #efe9fb); border: 1px solid var(--violeta-linea); border-radius: 8px; padding: 12px; }
+    .odonto-selected { font-size: 18px; color: var(--violeta-oscuro); font-weight: 900; margin-bottom: 10px; }
+    .odonto-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .odonto-legend span { display: inline-block; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 900; border: 1px solid rgba(0,0,0,.08); }
+    .odonto-summary { margin-top: 14px; }
+    .odonto-summary table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .odonto-summary th { background: var(--violeta-suave); color: var(--violeta-oscuro); text-align: left; padding: 8px; border-bottom: 1px solid var(--violeta-linea); }
+    .odonto-summary td { padding: 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+    .odonto-color { width: 14px; height: 14px; border-radius: 50%; display: inline-block; vertical-align: middle; border: 1px solid rgba(0,0,0,.18); }
 
     /* HCV5 - Módulo de presupuestos integrado tipo proforma */
-
     .presupuestos-card { margin-top: 10px; border: 1.5px solid var(--violeta-linea); }
-
     .presupuesto-toolbar { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 12px; }
-
     .presupuesto-layout { display:grid; grid-template-columns: 1fr .95fr; gap:14px; align-items:start; }
-
     .budget-form-box { background:linear-gradient(90deg,#faf8ff,#efe9fb); border:1px solid var(--violeta-linea); border-radius:8px; padding:12px; }
-
     .budget-form-box .money-field { display:flex; align-items:center; border:1px solid #d7d2e4; border-radius:6px; overflow:hidden; background:white; }
-
     .budget-form-box .money-field span { padding:10px 12px; background:#f2f2f2; font-weight:900; color:#666; }
-
     .budget-form-box .money-field input { border:0; border-radius:0; }
-
     .budget-lines-table, .budget-history-table { width:100%; border-collapse:collapse; font-size:12px; }
-
     .budget-lines-table th, .budget-history-table th { background:var(--violeta-suave); color:var(--violeta-oscuro); text-align:left; padding:9px 8px; border-bottom:1px solid var(--violeta-linea); }
-
     .budget-lines-table td, .budget-history-table td { padding:8px; border-bottom:1px solid #eee; vertical-align:middle; }
-
     .budget-lines-table input { padding:7px 8px; font-size:12px; }
-
     .budget-total-box { width:360px; max-width:100%; margin-left:auto; margin-top:14px; background:#fbf7ff; border:1.8px solid var(--violeta-linea); border-radius:10px; padding:12px; }
-
     .budget-total-line { display:flex; justify-content:space-between; gap:10px; margin:6px 0; font-size:13px; align-items:center; }
-
     .budget-total-final { border-top:1px solid #c7b7ea; padding-top:9px; margin-top:8px; font-size:17px; font-weight:900; color:var(--violeta-oscuro); }
-
     .budget-current-title { font-size:18px; font-weight:900; color:var(--violeta-oscuro); margin:0 0 8px; }
-
     .budget-badge { display:inline-block; padding:5px 8px; border-radius:999px; background:var(--violeta-suave); color:var(--violeta-oscuro); border:1px solid var(--violeta-linea); font-size:11px; font-weight:900; }
-
     .budget-preview-card { background:#fff; border:1px solid var(--violeta-linea); border-radius:8px; padding:12px; }
-
     .budget-preview-card h3 { margin:0 0 8px; color:var(--violeta-oscuro); }
-
     .budget-history-empty { color:#66617c; background:#faf8ff; border:1px dashed var(--violeta-linea); padding:14px; border-radius:6px; text-align:center; font-size:13px; }
-
     .budget-pdf-page { background:#fff; color:#40324F; padding:28px 34px; font-family:Arial, sans-serif; width: 760px; }
-
     .budget-pdf-header { text-align:center; margin-bottom:12px; color:#8a6fc5; font-weight:900; line-height:1.14; }
-
     .budget-pdf-header .line1 { font-size:24px; display:block; }
-
     .budget-pdf-header .line2 { font-size:22px; display:block; margin-top:3px; }
-
     .budget-pdf-info { text-align:center; font-size:12px; line-height:1.35; margin-top:6px; color:#40324F; }
-
     .budget-pdf-title { font-size:34px; color:#0F5DB8; font-weight:900; margin:18px 0 14px; letter-spacing:.2px; }
-
     .budget-pdf-paciente { font-size:14px; line-height:1.45; margin-bottom:16px; }
-
     .budget-pdf-table { width:100%; border-collapse:collapse; margin-top:8px; }
-
     .budget-pdf-table th { background:white; color:#0F5DB8; font-size:16px; text-transform:uppercase; border-bottom:2px solid #0F5DB8; padding:8px; text-align:left; }
-
     .budget-pdf-table td { border:0; border-bottom:1px solid #d7d7df; padding:9px 8px; font-size:13px; text-align:left; }
-
     .budget-pdf-table .price { color:#0F5DB8; font-weight:900; text-align:right; width:120px; }
-
     .budget-pdf-table .piece { text-align:center; width:90px; }
-
     .budget-pdf-total { width:360px; margin-left:auto; margin-top:14px; border:1.8px solid #8B74B8; background:#fbf7ff; border-radius:14px; padding:14px; }
-
     .budget-pdf-note { margin-top:14px; border:1px solid #ddd; border-radius:12px; padding:11px; font-size:12px; line-height:1.35; background:#fff; }
-
     .budget-pdf-footer { margin:28px auto 0; text-align:center; font-size:14px; line-height:1.4; }
-
     .budget-icon-card { background:#fff; border:1px solid var(--violeta-linea); border-radius:10px; padding:12px; display:flex; align-items:center; gap:12px; margin-bottom:10px; }
-
     .budget-icon-card .icon { font-size:36px; }
-
     @media (max-width: 1100px) { .presupuesto-layout { grid-template-columns:1fr; } }
 
-"""
+    @media (max-width: 1100px) { .odontograma-layout { grid-template-columns: 1fr; } }
 
-hcv = hcv.replace("    @media (max-width: 1100px)", css + "\n    @media (max-width: 1100px)", 1)
+    @media (max-width: 1100px) { .clinic-header, .top-grid, .grid-main, .nav { grid-template-columns: 1fr; } .date-card { justify-self: stretch; } .grid, .grid-2, .checks, .kpi-grid, .patient-resume { grid-template-columns: 1fr; } .clinic-name h1 { font-size: 26px; } }
+    @media print { .top-grid, .nav, .saved-list, .actions-print-hide, button { display:none !important; } .page { max-width:none; margin:0; } body { background:white; } .clinic-header { box-shadow:none; } }
+  </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <section class="clinic-header">
+      <div class="logo-box"><img src="data:image/png;base64,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" alt="Logo Dra. Cecilia Gallardo"></div>
+      <div class="clinic-name">
+        <h1>CENTRO ODONTOLÓGICO<br>DRA. CECILIA GALLARDO R.</h1>
+        <div class="contact-line"><span class="dot"></span><span class="phone">0999290988</span><span class="ig">📷 @cecigallardocreandosonrisas</span></div>
+      </div>
+      <div class="address"><span class="pin">📍</span>Av. Juan Tanca Marengo y Joaquín Orrantia<br>Edificio Equilibrium · Piso 5 · Oficina 505<br>Frente a Mall del Sol</div>
+      <div class="date-card"><small>Fecha actual</small><strong id="fechaActual">--/--/----</strong></div>
+    </section>
 
-# Insert module before exams
+    <nav class="nav">
+      <div><span>♙</span>DATOS GENERALES</div><div><span>♡</span>HISTORIA MÉDICA</div><div><span>♢</span>ENFERMEDADES</div><div><span>🦷</span>ANTEC. ODONTOLÓGICOS</div><div><span>✍</span>RESPONSABLE</div><div><span>📁</span>ARCHIVOS</div>
+    </nav>
 
-section = r"""
+    <section class="top-grid actions-print-hide">
+      <div class="card"><div class="card-title">Buscar paciente por cédula</div><div class="card-body">
+        <div class="search-row"><input id="buscarCedula" type="text" placeholder="Ingrese número de cédula"><button type="button" class="secondary" onclick="buscarPaciente()">🔍</button></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;"><button type="button" class="primary" onclick="buscarPaciente()">🔍 Buscar Paciente</button><button type="button" class="secondary" onclick="nuevoPaciente()">⊕ Nuevo Paciente</button></div>
+      </div></div>
+      <div class="card"><div class="card-title">Nombre del archivo (automático)</div><div class="card-body"><div id="nombreArchivo" class="file-preview">— — —</div><div class="note">Se generará automáticamente con: CÉDULA_PRIMERAPELLIDO_SEGUNDOAPELLIDO</div></div></div>
+      <div class="card"><div class="card-title">Acciones</div><div class="card-body actions-grid"><button type="button" class="primary" onclick="guardarHistoriaDrive()">☁ Guardar en Drive</button><button type="button" class="primary" onclick="buscarPacienteDrive()">🔎 Buscar en Google Drive</button><button type="button" class="secondary" onclick="guardarHistoria()">💾 Guardar Local</button><button type="button" class="primary" onclick="generarPDF()">📄 PDF Historia Actual</button><button type="button" class="primary" onclick="generarHistoriaBlancoPDF()">📄 Historia en Blanco PDF</button><button type="button" class="primary" onclick="generarFormularioPaciente()">📝 Formulario para Paciente</button><button type="button" class="secondary" onclick="descargarJSON()">⬇ Descargar JSON</button><button type="button" class="secondary" onclick="importarJSONClick()">⬆ Importar Datos</button><input type="file" id="importFile" accept="application/json" style="display:none" onchange="importarJSON(event)"><button type="button" class="danger" onclick="eliminarPaciente()">🗑 Eliminar</button><button type="button" class="secondary" onclick="limpiarFormulario()">🧹 Limpiar</button><div id="driveStatus" class="drive-status full"></div></div></div></div>
+    </section>
 
-      <section class="card presupuestos-card" id="moduloPresupuestos">
+    <form id="formHistoria">
+      <section class="grid-main">
+        <div>
+          <div class="card"><div class="card-title">Datos generales del paciente</div><div class="card-body grid">
+            <div><label for="cedula">1. Cédula / Número de historia</label><input id="cedula" type="text" required oninput="actualizarNombreArchivo()" placeholder="Ej: 0912345678"></div>
+            <div><label for="primerApellido">2. Primer apellido</label><input id="primerApellido" type="text" required oninput="actualizarNombreArchivo()" placeholder="Ej: GALLARDO"></div>
+            <div><label for="segundoApellido">3. Segundo apellido</label><input id="segundoApellido" type="text" required oninput="actualizarNombreArchivo()" placeholder="Ej: RODRIGUEZ"></div>
+            <div><label for="nombres">4. Nombres</label><input id="nombres" type="text" required placeholder="Ej: MARIA CECILIA"></div>
+            <div class="full"><label for="direccion">5. Dirección</label><input id="direccion" type="text" placeholder="Ej: Urbanización, Calle, Número, Referencia"></div>
+            <div><label for="telefono">6. Teléfono</label><input id="telefono" type="tel" placeholder="Ej: 0991234567"></div>
+            <div><label for="fechaNacimiento">7. Fecha de nacimiento</label><input id="fechaNacimiento" type="date" onchange="calcularEdad()"></div>
+            <div><label for="edad">8. Edad automática</label><input id="edad" type="text" class="readonly" readonly placeholder="— — —"></div>
+            <div><label for="referido">9. Referido por</label><input id="referido" type="text" placeholder="Ej: Amigo, Familiar, Otro"></div>
+            <div><label for="fechaPrimeraAtencion">10. Fecha primera atención</label><input id="fechaPrimeraAtencion" type="date"></div>
+            <div class="full"><label for="enfermedades">11. Enfermedades preexistentes (resumen)</label><textarea id="enfermedades" placeholder="Describa enfermedades preexistentes del paciente..."></textarea></div>
+            <div class="full"><label for="motivoConsulta">12. Motivo de la primera consulta</label><textarea id="motivoConsulta" placeholder="Describa el motivo principal de la primera consulta..."></textarea></div>
+          </div><div class="info-line">ⓘ Complete todos los datos y guarde la historia clínica para continuar.</div></div>
 
-        <div class="card-title evolution-title">💰 Presupuestos / Proformas del Paciente</div>
+          <div class="card" style="margin-top:10px;"><div class="card-title">Enfermedades sistémicas <small>(marque las que correspondan)</small></div><div class="card-body">
+            <div class="checks">
+              <label class="check-item"><input type="checkbox" id="sisHipertension"> Hipertensión arterial</label><label class="check-item"><input type="checkbox" id="sisDiabetes"> Diabetes</label><label class="check-item"><input type="checkbox" id="sisCardiacos"> Problemas cardíacos</label><label class="check-item"><input type="checkbox" id="sisRespiratorios"> Asma / Problemas respiratorios</label>
+              <label class="check-item"><input type="checkbox" id="sisRenales"> Problemas renales</label><label class="check-item"><input type="checkbox" id="sisHepaticos"> Problemas hepáticos</label><label class="check-item"><input type="checkbox" id="sisTiroides"> Tiroides</label><label class="check-item"><input type="checkbox" id="sisOsteoporosis"> Osteoporosis</label>
+              <label class="check-item"><input type="checkbox" id="sisGastritis"> Gastritis / Úlcera</label><label class="check-item"><input type="checkbox" id="sisEpilepsia"> Epilepsia</label><label class="check-item"><input type="checkbox" id="sisVIH"> VIH / Sida</label><label class="check-item"><input type="checkbox" id="sisHepatitis"> Hepatitis</label>
+              <label class="check-item"><input type="checkbox" id="sisAnticoagulantes"> Anticoagulantes</label><label class="check-item"><input type="checkbox" id="sisCancer"> Cáncer</label><label class="check-item"><input type="checkbox" id="sisOtros"> Otras:</label><input id="sisOtrosTexto" type="text" placeholder="Especifique">
+            </div>
+            <div style="margin-top:10px;"><label for="obsSistemicas">Observaciones adicionales</label><textarea id="obsSistemicas" placeholder="Escriba aquí otras enfermedades o información relevante..."></textarea></div>
+          </div></div>
 
+          <div class="card saved-list actions-print-hide" style="margin-top:10px;"><div class="card-title">Pacientes guardados en este navegador</div><div class="card-body"><ul id="listaPacientes"></ul></div></div>
+        </div>
+
+        <div>
+          <div class="card"><div class="card-title">Historia médica (resumen)</div><div class="card-body">
+            <table class="medical-table"><thead><tr><th style="width:42px;">#</th><th>Pregunta</th><th style="width:44px;">Sí</th><th style="width:44px;">No</th><th style="width:38%;">Observaciones</th></tr></thead><tbody>
+              <tr><td>1.</td><td>¿Ha sido hospitalizado últimamente?</td><td><input type="radio" name="hospitalizado" value="Sí"></td><td><input type="radio" name="hospitalizado" value="No"></td><td><input id="obsHospitalizado" type="text"></td></tr>
+              <tr><td>2.</td><td>¿Está usted en tratamiento médico actualmente?</td><td><input type="radio" name="medicamentos" value="Sí"></td><td><input type="radio" name="medicamentos" value="No"></td><td><input id="obsMedicamentos" type="text"></td></tr>
+              <tr><td>3.</td><td>¿Está usted tomando algún medicamento?</td><td><input type="radio" name="tomaMedicamento" value="Sí"></td><td><input type="radio" name="tomaMedicamento" value="No"></td><td><input id="obsTomaMedicamento" type="text"></td></tr>
+              <tr><td>4.</td><td>¿Es alérgico a algún medicamento?</td><td><input type="radio" name="alergiaMedicamentos" value="Sí"></td><td><input type="radio" name="alergiaMedicamentos" value="No"></td><td><input id="obsAlergiaMedicamentos" type="text"></td></tr>
+              <tr><td>5.</td><td>¿Ha tenido hemorragias que requieran tratamiento especial?</td><td><input type="radio" name="hemorragias" value="Sí"></td><td><input type="radio" name="hemorragias" value="No"></td><td><input id="obsHemorragias" type="text"></td></tr>
+              <tr><td>6.</td><td>¿Ha tenido complicaciones por anestesia local?</td><td><input type="radio" name="anestesia" value="Sí"></td><td><input type="radio" name="anestesia" value="No"></td><td><input id="obsAnestesia" type="text"></td></tr>
+              <tr><td>7.</td><td>¿Está usted embarazada actualmente?</td><td><input type="radio" name="embarazo" value="Sí"></td><td><input type="radio" name="embarazo" value="No"></td><td><input id="obsEmbarazo" type="text"></td></tr>
+              <tr><td>8.</td><td>¿Ha comido o bebido algo en las últimas 4 horas?</td><td><input type="radio" name="comio" value="Sí"></td><td><input type="radio" name="comio" value="No"></td><td><input id="obsComio" type="text"></td></tr>
+              <tr><td>9.</td><td>¿Tensión arterial?</td><td><input type="radio" name="tension" value="Sí"></td><td><input type="radio" name="tension" value="No"></td><td><input id="obsTension" type="text" placeholder="Máxima / mínima"></td></tr>
+              <tr><td>10.</td><td>¿Fuma?</td><td><input type="radio" name="fuma" value="Sí"></td><td><input type="radio" name="fuma" value="No"></td><td><input id="obsFuma" type="text" placeholder="Cantidad diaria"></td></tr>
+            </tbody></table>
+          </div></div>
+
+          <div class="card" style="margin-top:10px;"><div class="card-title">Antecedentes odontológicos</div><div class="card-body">
+            <div class="grid-2"><div><label for="ultimaVisitaOdontologica">Última visita al odontólogo</label><input id="ultimaVisitaOdontologica" type="date"></div><div><label for="motivoActual">Motivo de la consulta actual</label><textarea id="motivoActual" placeholder="Describa el motivo actual..."></textarea></div></div>
+            <label style="margin-top:12px;">Síntomas actuales (marque los que presente)</label>
+            <div class="checks" style="grid-template-columns: repeat(2, 1fr);">
+              <label class="check-item"><input type="checkbox" id="dolor"> Dolor</label><label class="check-item"><input type="checkbox" id="malAliento"> Mal aliento</label><label class="check-item"><input type="checkbox" id="sensibilidad"> Sensibilidad</label><label class="check-item"><input type="checkbox" id="movilidadDental"> Movilidad dental</label><label class="check-item"><input type="checkbox" id="sangrado"> Sangrado de encías</label><label class="check-item"><input type="checkbox" id="dificultadMasticar"> Dificultad al masticar</label><label class="check-item"><input type="checkbox" id="otrosOdonto"> Otros:</label><input id="otrosOdontoTexto" type="text" placeholder="Especifique">
+            </div>
+            <div style="margin-top:12px;"><label for="obsOdontologicas">Observaciones adicionales</label><textarea id="obsOdontologicas" placeholder="Escriba observaciones relevantes sobre antecedentes odontológicos..."></textarea></div>
+          </div></div>
+
+          <div class="card" style="margin-top:10px;"><div class="card-title">Responsable / consentimiento inicial</div><div class="card-body grid">
+            <div><label for="responsable">Paciente o responsable</label><input id="responsable" type="text"></div><div><label for="parentescoResponsable">Parentesco</label><input id="parentescoResponsable" type="text"></div><div><label for="fechaConsentimiento">Fecha</label><input id="fechaConsentimiento" type="date"></div><div class="full"><label for="obsConsentimiento">Observaciones</label><textarea id="obsConsentimiento" placeholder="Firma digital se añadirá en una versión posterior."></textarea></div>
+          </div></div>
+        </div>
+      </section>
+
+      <section class="card evolution-card">
+        <div class="card-title evolution-title">🦷 Evolución Clínica del Paciente</div>
         <div class="card-body">
+          <div class="patient-resume">
+            <div><b>Paciente:</b><br><span id="resumenPaciente">—</span></div>
+            <div><b>Cédula:</b><br><span id="resumenCedula">—</span></div>
+            <div><b>Edad:</b><br><span id="resumenEdad">—</span></div>
+            <div><b>Expediente:</b><br><span id="resumenExpediente">—</span></div>
+          </div>
 
-          <div class="budget-icon-card">
+          <div id="alertasMedicas" class="alertas-medicas">
+            <strong>⚠ Alertas médicas del paciente</strong>
+            <div id="alertasMedicasTags" class="alert-tags"></div>
+          </div>
+          <div id="alertasOk" class="alertas-ok">✓ Sin alertas médicas críticas registradas hasta el momento.</div>
 
-            <div class="icon">💰</div>
+          <div class="kpi-grid">
+            <div class="kpi-card"><small>Total consultas</small><strong id="kpiTotalConsultas">0</strong></div>
+            <div class="kpi-card"><small>Última visita</small><strong id="kpiUltimaVisita">—</strong></div>
+            <div class="kpi-card"><small>Próxima cita</small><strong id="kpiProximaCita">—</strong></div>
+          </div>
 
-            <div>
+          <div class="grid">
+            <div><label for="evFecha">Fecha de atención</label><input id="evFecha" type="date"></div>
+            <div><label for="evPieza">Pieza dental</label><input id="evPieza" type="text" placeholder="Ej.: 11, 26, 46"></div>
+            <div><label for="evProximaCita">Próxima cita</label><input id="evProximaCita" type="date"></div>
+            <div class="full"><label for="evMotivo">Motivo de consulta</label><textarea id="evMotivo" placeholder="Motivo por el que acude el paciente..."></textarea></div>
+            <div class="full"><label for="evDiagnostico">Diagnóstico</label><textarea id="evDiagnostico" placeholder="Diagnóstico clínico..."></textarea></div>
+            <div class="full"><label for="evProcedimiento">Procedimiento realizado</label><textarea id="evProcedimiento" placeholder="Detalle del procedimiento realizado..."></textarea></div>
+            <div class="full"><label for="evTratamiento">Tratamiento indicado</label><textarea id="evTratamiento" placeholder="Plan o tratamiento indicado..."></textarea></div>
+            <div class="full"><label for="evMedicamentos">Medicamentos / receta</label><textarea id="evMedicamentos" placeholder="Medicamentos, dosis o indicaciones..."></textarea></div>
+            <div class="full"><label for="evObservaciones">Observaciones</label><textarea id="evObservaciones" placeholder="Observaciones adicionales de la atención..."></textarea></div>
+          </div>
 
-              <b>Módulo independiente de presupuestos</b><br>
+          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;" class="actions-print-hide">
+            <button type="button" class="primary" onclick="agregarEvolucion()">➕ Agregar Evolución</button>
+            <button type="button" class="secondary" onclick="duplicarUltimaEvolucion()">⧉ Duplicar Última Evolución</button>
+            <button type="button" class="secondary" onclick="limpiarEvolucion()">🧹 Limpiar Evolución</button>
+          </div>
 
-              <span class="note">La doctora puede crear un presupuesto nuevo, guardar varios presupuestos dentro de la historia y generar PDF para entregar al paciente.</span>
+          <div style="margin-top:14px;">
+            <div class="card-title" style="border-radius:6px 6px 0 0;">Historial de evoluciones</div>
+            <div id="contenedorEvoluciones"></div>
+          </div>
+        </div>
+      </section>
 
+
+      <section class="card odontograma-card">
+        <div class="card-title evolution-title">🦷 Odontograma Clínico y Plan de Tratamiento</div>
+        <div class="card-body">
+          <div class="patient-resume" style="margin-top:0;">
+            <div><b>Paciente:</b> <span id="odontoPacienteResumen">—</span></div>
+            <div><b>Cédula:</b> <span id="odontoCedulaResumen">—</span></div>
+            <div><b>Pieza seleccionada:</b> <span id="piezaSeleccionadaTxt">—</span></div>
+            <div><b>Piezas marcadas:</b> <span id="totalPiezasMarcadas">0</span></div>
+          </div>
+
+          <div class="odontograma-layout">
+            <div class="odontograma-container">
+              <div id="odontograma"></div>
+              <div class="odonto-legend">
+                <span style="background:#ffffff;color:#252344;">Sano</span>
+                <span style="background:#E53935;color:white;">Caries</span>
+                <span style="background:#B8A4D4;color:white;">Restauración</span>
+                <span style="background:#1565C0;color:white;">Corona</span>
+                <span style="background:#2E7D32;color:white;">Implante</span>
+                <span style="background:#EF6C00;color:white;">Endodoncia</span>
+                <span style="background:#616161;color:white;">Ausente</span>
+                <span style="background:#FBC02D;color:#252344;">Carilla</span>
+                <span style="background:#9C27B0;color:white;">Prótesis</span>
+              </div>
             </div>
 
+            <div class="odonto-tools">
+              <div class="odonto-selected">Pieza: <span id="piezaActivaLabel">Seleccione una pieza</span></div>
+              <label for="odontoEstado">Estado / diagnóstico</label>
+              <select id="odontoEstado">
+                <option value="">Sano / sin novedad</option>
+                <option value="Caries">Caries</option>
+                <option value="Restauración">Restauración</option>
+                <option value="Corona">Corona</option>
+                <option value="Implante">Implante</option>
+                <option value="Endodoncia">Endodoncia</option>
+                <option value="Ausente">Ausente / falta pieza</option>
+                <option value="Carilla">Carilla</option>
+                <option value="Prótesis">Prótesis</option>
+                <option value="Extracción indicada">Extracción indicada</option>
+              </select>
+
+              <label for="odontoTratamiento" style="margin-top:10px;">Tratamiento propuesto / realizado</label>
+              <input id="odontoTratamiento" type="text" placeholder="Ej.: resina, corona, limpieza, endodoncia...">
+
+              <label for="odontoObservacion" style="margin-top:10px;">Observación</label>
+              <textarea id="odontoObservacion" placeholder="Detalle clínico, material, evolución, pendiente, etc."></textarea>
+
+              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;" class="actions-print-hide">
+                <button type="button" class="primary" onclick="guardarPiezaOdontograma()">💾 Guardar pieza</button>
+                <button type="button" class="secondary" onclick="limpiarPiezaOdontograma()">🧹 Limpiar pieza</button>
+              </div>
+
+              <div class="note">El odontograma se guarda dentro de la historia clínica del paciente en Google Drive.</div>
+            </div>
+          </div>
+
+          <div class="odonto-summary">
+            <div class="card-title" style="border-radius:6px 6px 0 0;">Resumen de diagnóstico y tratamientos por pieza</div>
+            <div id="resumenOdontograma"></div>
+          </div>
+        </div>
+      </section>
+
+
+      <section class="card presupuestos-card" id="moduloPresupuestos">
+        <div class="card-title evolution-title">💰 Presupuestos / Proformas del Paciente</div>
+        <div class="card-body">
+          <div class="budget-icon-card">
+            <div class="icon">💰</div>
+            <div>
+              <b>Módulo independiente de presupuestos</b><br>
+              <span class="note">La doctora puede crear un presupuesto nuevo, guardar varios presupuestos dentro de la historia y generar PDF para entregar al paciente.</span>
+            </div>
           </div>
 
           <div class="presupuesto-toolbar actions-print-hide">
-
             <button type="button" class="primary" onclick="nuevoPresupuesto()">🆕 Nuevo presupuesto</button>
-
             <button type="button" class="secondary" onclick="presupuestoDesdeOdontograma()">🦷 Traer tratamientos del odontograma</button>
-
             <button type="button" class="secondary" onclick="agregarLineaPresupuesto()">➕ Agregar línea</button>
-
             <button type="button" class="primary" onclick="guardarPresupuestoActual()">💾 Guardar presupuesto</button>
-
             <button type="button" class="secondary" onclick="generarPDFPresupuestoActual()">📄 PDF presupuesto</button>
-
           </div>
 
           <div class="presupuesto-layout">
-
             <div>
-
               <div class="budget-form-box">
-
                 <div class="budget-current-title">Presupuesto actual <span class="budget-badge" id="budgetEstado">Nuevo</span></div>
-
                 <div class="grid-2">
-
                   <div>
-
                     <label for="budgetTitulo">Nombre del presupuesto</label>
-
                     <input id="budgetTitulo" placeholder="Ej.: Presupuesto inicial, Ortodoncia, Rehabilitación..." oninput="sincronizarPresupuestoActual()">
-
                   </div>
-
                   <div>
-
                     <label for="budgetFecha">Fecha</label>
-
                     <input id="budgetFecha" type="date" oninput="sincronizarPresupuestoActual()">
-
                   </div>
-
                   <div class="full">
-
                     <label for="budgetObservacion">Explicación / condiciones</label>
-
                     <textarea id="budgetObservacion" placeholder="Detalle para el paciente, forma de pago, vigencia, observaciones..." oninput="sincronizarPresupuestoActual()"></textarea>
-
                   </div>
-
                 </div>
-
               </div>
 
               <div id="budgetLineasCont" style="margin-top:12px;"></div>
 
               <div class="budget-total-box">
-
                 <div class="budget-total-line"><span>Subtotal</span><b id="budgetSubtotal">$0.00</b></div>
-
                 <div class="budget-total-line"><span>Descuento</span><input id="budgetDescuento" type="number" step="0.01" value="0" oninput="sincronizarPresupuestoActual(); renderPresupuestoActual(false);" style="width:130px;text-align:right;"></div>
-
                 <div class="budget-total-line budget-total-final"><span>Total</span><span id="budgetTotal">$0.00</span></div>
-
                 <div class="budget-total-line"><span>Total en letras</span><small id="budgetTotalLetras">—</small></div>
-
               </div>
-
             </div>
 
             <div class="budget-preview-card">
-
               <h3>Historial de presupuestos guardados</h3>
-
               <div id="historialPresupuestos"></div>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
-"""
+      <section class="card examenes-card">
+        <div class="card-title evolution-title">📁 Exámenes, RX y Tomografías del Paciente</div>
+        <div class="card-body">
+          <div class="grid">
+            <div><label for="exFecha">Fecha del examen</label><input id="exFecha" type="date"></div>
+            <div><label for="exTipo">Tipo de documento</label><select id="exTipo"><option value="RX">RX</option><option value="Tomografía">Tomografía</option><option value="Examen PDF">Examen PDF</option><option value="Fotografía clínica">Fotografía clínica</option><option value="Otro">Otro</option></select></div>
+            <div><label for="exArchivo">Archivo PDF / Imagen</label><input id="exArchivo" type="file" accept="application/pdf,image/*"></div>
+            <div class="full"><label for="exDescripcion">Descripción</label><input id="exDescripcion" type="text" placeholder="Ej.: Panorámica inicial, tomografía maxilar, RX pieza 46..."></div>
+            <div class="full"><label for="exLink">Link externo del examen o tomografía</label><input id="exLink" type="url" placeholder="Pegue aquí el link de la tomografía, visor DICOM, laboratorio, WeTransfer, Drive, etc."></div>
+          </div>
+          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;" class="actions-print-hide">
+            <button type="button" class="primary" onclick="agregarExamen()">➕ Agregar Examen / Link</button>
+            <button type="button" class="secondary" onclick="limpiarExamen()">🧹 Limpiar Examen</button>
+          </div>
+          <div style="margin-top:14px;">
+            <div class="card-title" style="border-radius:6px 6px 0 0;">Historial de exámenes y documentos</div>
+            <div id="contenedorExamenes"></div>
+          </div>
+          <div class="note">Los links se guardan dentro de la historia clínica. Los archivos PDF o imágenes se suben al Drive dentro de la carpeta del paciente en una subcarpeta llamada EXAMENES.</div>
+        </div>
+      </section>
 
-marker = '      <section class="card examenes-card">'
+    </form>
 
-hcv = hcv.replace(marker, section + marker, 1)
+    <div class="footer"><span>Historia Clínica Odontológica Digital con Google Drive · </span><span>🦷 Centro Odontológico Dra. Cecilia Gallardo R.</span></div>
+  </div>
 
-# Add variables, avoiding duplicate
+  <script>
+    const VERSION_KEY = 'HCV_';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytcWHIpWSTCK98E2gszmN2eXdHc9vRD6XMJnGlmbc7sr--sozw8LKktk1-brwdj0F8Zg/exec';
+    const VERSION_ANTERIOR_KEYS = ['HCV21_', 'HCV2_', 'HCV1_'];
+    let evoluciones = [];
+    let examenes = [];
+    let odontograma = {};
+    let presupuestos = [];
+    let presupuestoActual = crearPresupuestoVacio();
+    let presupuestoActualId = null;
+    let piezaOdontoActiva = '';
+    let editandoEvolucionIndex = null;
 
-hcv = hcv.replace("    let odontograma = {};\n    let piezaOdontoActiva = '';",
+    const CAMPOS_TEXTO = ['cedula','primerApellido','segundoApellido','nombres','direccion','telefono','fechaNacimiento','edad','referido','fechaPrimeraAtencion','enfermedades','motivoConsulta','obsHospitalizado','obsMedicamentos','obsTomaMedicamento','obsAlergiaMedicamentos','obsHemorragias','obsAnestesia','obsEmbarazo','obsComio','obsTension','obsFuma','sisOtrosTexto','obsSistemicas','ultimaVisitaOdontologica','motivoActual','otrosOdontoTexto','obsOdontologicas','responsable','parentescoResponsable','fechaConsentimiento','obsConsentimiento'];
+    const CAMPOS_CHECK = ['sisHipertension','sisDiabetes','sisCardiacos','sisRespiratorios','sisRenales','sisHepaticos','sisTiroides','sisOsteoporosis','sisGastritis','sisEpilepsia','sisVIH','sisHepatitis','sisAnticoagulantes','sisCancer','sisOtros','dolor','malAliento','sensibilidad','movilidadDental','sangrado','dificultadMasticar','otrosOdonto'];
+    const RADIO_GROUPS = ['hospitalizado','medicamentos','tomaMedicamento','alergiaMedicamentos','hemorragias','anestesia','embarazo','comio','tension','fuma'];
+    const CAMPOS_EVOLUCION = ['evFecha','evMotivo','evDiagnostico','evPieza','evProcedimiento','evTratamiento','evMedicamentos','evObservaciones','evProximaCita'];
 
-                  "    let odontograma = {};\n    let presupuestos = [];\n    let presupuestoActual = crearPresupuestoVacio();\n    let presupuestoActualId = null;\n    let piezaOdontoActiva = '';", 1)
+    function fechaHoy() { const d = new Date(); document.getElementById('fechaActual').textContent = d.toLocaleDateString('es-EC'); }
+    function limpiarTextoArchivo(texto) { return (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, ''); }
+    function obtenerNombreArchivo() { const c=limpiarTextoArchivo(cedula.value), p=limpiarTextoArchivo(primerApellido.value), s=limpiarTextoArchivo(segundoApellido.value); return (c&&p&&s) ? `${c}_${p}_${s}` : ''; }
+    function actualizarNombreArchivo() { const n=obtenerNombreArchivo(); nombreArchivo.textContent = n || '— — —'; actualizarResumenPaciente(); }
+    function calcularEdad() { const f=fechaNacimiento.value; if(!f){edad.value=''; actualizarResumenPaciente(); return;} const n=new Date(f+'T00:00:00'), h=new Date(); let e=h.getFullYear()-n.getFullYear(); const m=h.getMonth()-n.getMonth(); if(m<0||(m===0&&h.getDate()<n.getDate())) e--; edad.value=e>=0? e+' años':''; actualizarResumenPaciente(); }
+    function getRadio(name) { const r=document.querySelector(`input[name="${name}"]:checked`); return r ? r.value : ''; }
+    function setRadio(name, value) { document.querySelectorAll(`input[name="${name}"]`).forEach(r => r.checked = (r.value === value)); }
+    function validarMinimo() { if(!cedula.value.trim() || !primerApellido.value.trim() || !segundoApellido.value.trim() || !nombres.value.trim()) { alert('Debe llenar al menos: cédula, primer apellido, segundo apellido y nombres.'); return false; } return true; }
 
-# Include in guardar datos
-
-hcv = hcv.replace("      datos.odontograma = odontograma;\n      datos.nombreArchivo=obtenerNombreArchivo();",
-
-                  "      datos.odontograma = odontograma;\n      sincronizarPresupuestoActual();\n      datos.presupuestos = presupuestos;\n      datos.presupuestoActual = presupuestoActual;\n      datos.nombreArchivo=obtenerNombreArchivo();", 1)
-
-# Load from datos
-
-hcv = hcv.replace("      odontograma = datos.odontograma && typeof datos.odontograma === 'object' ? datos.odontograma : {};\n\n      calcularEdad();",
-
-                  "      odontograma = datos.odontograma && typeof datos.odontograma === 'object' ? datos.odontograma : {};\n      presupuestos = Array.isArray(datos.presupuestos) ? datos.presupuestos : [];\n      presupuestoActual = datos.presupuestoActual && typeof datos.presupuestoActual === 'object' ? datos.presupuestoActual : crearPresupuestoVacio();\n      presupuestoActualId = presupuestoActual.id || null;\n\n      calcularEdad();", 1)
-
-# render calls
-
-hcv = hcv.replace("      renderOdontograma();\n      actualizarResumenPaciente();",
-
-                  "      renderOdontograma();\n      cargarPresupuestoActualEnPantalla();\n      renderPresupuestoActual();\n      renderHistorialPresupuestos();\n      actualizarResumenPaciente();", 1)
-
-hcv = hcv.replace("renderEvoluciones(); renderExamenes(); renderOdontograma(); actualizarAlertasMedicas();",
-
-                  "renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); actualizarAlertasMedicas();", 1)
-
-# Add JS before actualizarResumenPaciente
-
-js = r"""
-
-    function formatoUSD(valor) {
-
-      return '$' + Number(valor || 0).toFixed(2);
-
+    function obtenerDatosFormulario() {
+      const datos={};
+      CAMPOS_TEXTO.forEach(c=>datos[c]=document.getElementById(c)?.value||'');
+      CAMPOS_CHECK.forEach(c=>datos[c]=document.getElementById(c)?.checked||false);
+      RADIO_GROUPS.forEach(c=>datos[c]=getRadio(c));
+      datos.evoluciones = evoluciones;
+      datos.examenes = examenes;
+      datos.odontograma = odontograma;
+      sincronizarPresupuestoActual();
+      datos.presupuestos = presupuestos;
+      datos.presupuestoActual = presupuestoActual;
+      datos.nombreArchivo=obtenerNombreArchivo();
+      datos.fechaRegistro=new Date().toISOString();
+      return datos;
     }
 
-    function fechaISOHoy() {
+    function cargarDatosFormulario(datos) {
+      datos = datos || {};
+      // Compatibilidad: carga por id exacto y tolera historias guardadas con versiones anteriores.
+      CAMPOS_TEXTO.forEach(c => {
+        const el = document.getElementById(c);
+        if (el) el.value = (datos[c] !== undefined && datos[c] !== null) ? datos[c] : '';
+      });
+      CAMPOS_CHECK.forEach(c => {
+        const el = document.getElementById(c);
+        if (el) el.checked = !!datos[c];
+      });
+      RADIO_GROUPS.forEach(c => setRadio(c, datos[c] || ''));
 
-      return new Date().toISOString().slice(0,10);
+      evoluciones = Array.isArray(datos.evoluciones) ? datos.evoluciones : [];
+      examenes = Array.isArray(datos.examenes) ? datos.examenes : [];
+      odontograma = datos.odontograma && typeof datos.odontograma === 'object' ? datos.odontograma : {};
+      presupuestos = Array.isArray(datos.presupuestos) ? datos.presupuestos : [];
+      presupuestoActual = datos.presupuestoActual && typeof datos.presupuestoActual === 'object' ? datos.presupuestoActual : crearPresupuestoVacio();
+      presupuestoActualId = presupuestoActual.id || null;
 
-    }
-
-    function crearPresupuestoVacio() {
-
-      return {
-
-        id: 'PRES_' + Date.now(),
-
-        titulo: 'Presupuesto inicial',
-
-        fecha: fechaISOHoy(),
-
-        observacion: '',
-
-        descuento: 0,
-
-        lineas: []
-
-      };
-
-    }
-
-    function cargarPresupuestoActualEnPantalla() {
-
-      if (!presupuestoActual || typeof presupuestoActual !== 'object') presupuestoActual = crearPresupuestoVacio();
-
-      if (!presupuestoActual.id) presupuestoActual.id = 'PRES_' + Date.now();
-
-      presupuestoActualId = presupuestoActual.id;
-
-      const titulo = document.getElementById('budgetTitulo');
-
-      const fecha = document.getElementById('budgetFecha');
-
-      const obs = document.getElementById('budgetObservacion');
-
-      const desc = document.getElementById('budgetDescuento');
-
-      const estado = document.getElementById('budgetEstado');
-
-      if (titulo) titulo.value = presupuestoActual.titulo || 'Presupuesto inicial';
-
-      if (fecha) fecha.value = presupuestoActual.fecha || fechaISOHoy();
-
-      if (obs) obs.value = presupuestoActual.observacion || '';
-
-      if (desc) desc.value = Number(presupuestoActual.descuento || 0);
-
-      if (estado) estado.textContent = presupuestos.some(p => p.id === presupuestoActual.id) ? 'Guardado / editable' : 'Nuevo';
-
-    }
-
-    function sincronizarPresupuestoActual() {
-
-      if (!presupuestoActual || typeof presupuestoActual !== 'object') presupuestoActual = crearPresupuestoVacio();
-
-      presupuestoActual.titulo = document.getElementById('budgetTitulo')?.value || 'Presupuesto';
-
-      presupuestoActual.fecha = document.getElementById('budgetFecha')?.value || fechaISOHoy();
-
-      presupuestoActual.observacion = document.getElementById('budgetObservacion')?.value || '';
-
-      presupuestoActual.descuento = Number(document.getElementById('budgetDescuento')?.value || 0);
-
-      if (!Array.isArray(presupuestoActual.lineas)) presupuestoActual.lineas = [];
-
-    }
-
-    function nuevoPresupuesto() {
-
-      if (presupuestoActual && Array.isArray(presupuestoActual.lineas) && presupuestoActual.lineas.length) {
-
-        if (!confirm('¿Crear un presupuesto nuevo? Si no ha guardado el actual, puede perder cambios.')) return;
-
-      }
-
-      presupuestoActual = crearPresupuestoVacio();
-
-      presupuestoActualId = presupuestoActual.id;
-
+      calcularEdad();
+      actualizarNombreArchivo();
+      renderEvoluciones();
+      renderExamenes();
+      renderOdontograma();
       cargarPresupuestoActualEnPantalla();
-
       renderPresupuestoActual();
-
       renderHistorialPresupuestos();
+      actualizarResumenPaciente();
+      actualizarAlertasMedicas();
 
+      // Deja visible la cédula también en el buscador.
+      if (datos.cedula && document.getElementById('buscarCedula')) {
+        document.getElementById('buscarCedula').value = datos.cedula;
+      }
     }
 
-    function presupuestoDesdeOdontograma() {
+    function guardarHistoria() {
+      if(!validarMinimo()) return;
+      calcularEdad();
+      const datos=obtenerDatosFormulario();
+      localStorage.setItem(VERSION_KEY + datos.cedula.trim(), JSON.stringify(datos));
+      alert('Historia clínica guardada localmente en este navegador.\n\nNombre: ' + datos.nombreArchivo);
+      actualizarListaPacientes();
+    }
 
-      sincronizarPresupuestoActual();
+    async function buscarPaciente() {
+      const c = (document.getElementById('buscarCedula')?.value || '').replace(/\D/g, '');
+      if(!c){ alert('Ingrese una cédula para buscar.'); return; }
 
-      const existentes = {};
+      // IMPORTANTE:
+      // La lupita ahora consulta PRIMERO Google Drive, para evitar traer datos antiguos
+      // guardados en el navegador local. El navegador solo queda como respaldo.
+      setDriveStatus('Buscando primero en Google Drive para evitar datos desactualizados...', 'info');
 
-      (presupuestoActual.lineas || []).forEach(l => { if (l && l.pieza) existentes[String(l.pieza)] = l; });
+      const encontroDrive = await buscarPacienteDrive(true);
+      if (encontroDrive) return;
 
-      const piezas = Object.keys(odontograma || {}).sort((a,b)=>Number(a)-Number(b));
-
-      const nuevas = piezas.map(p => {
-
-        const o = odontograma[p] || {};
-
-        const anterior = existentes[p] || {};
-
-        const detalle = o.tratamiento || o.estado || '';
-
-        if (!detalle) return null;
-
-        return {
-
-          pieza: p,
-
-          detalle: anterior.detalle || detalle,
-
-          valor: Number(anterior.valor || 0),
-
-          observacion: anterior.observacion || o.observacion || ''
-
-        };
-
-      }).filter(Boolean);
-
-      if (!nuevas.length) {
-
-        alert('No hay tratamientos registrados en el odontograma para traer al presupuesto.');
-
-        return;
-
+      // Respaldo local solo si Drive no responde o no encuentra.
+      let guardado = localStorage.getItem(VERSION_KEY + c);
+      if(!guardado){
+        for(const k of VERSION_ANTERIOR_KEYS){
+          guardado = localStorage.getItem(k + c);
+          if(guardado) break;
+        }
       }
 
-      presupuestoActual.lineas = nuevas;
+      if(guardado){
+        cargarDatosFormulario(JSON.parse(guardado));
+        setDriveStatus('⚠ Se cargó desde respaldo local del navegador. Revise si está actualizado.', 'info');
+        alert('Se cargó desde respaldo local del navegador. Para datos más recientes use Guardar en Drive y Buscar en Google Drive.');
+        return;
+      }
 
-      renderPresupuestoActual();
-
+      setDriveStatus('No se encontró el paciente ni en Drive ni en respaldo local.', 'err');
+      alert('No se encontró el paciente.');
     }
 
-    function agregarLineaPresupuesto() {
-
-      sincronizarPresupuestoActual();
-
-      presupuestoActual.lineas.push({ pieza:'', detalle:'', valor:0, observacion:'' });
-
-      renderPresupuestoActual();
-
+    function setDriveStatus(msg, tipo='info') {
+      const box = document.getElementById('driveStatus');
+      if(!box) return;
+      box.className = 'drive-status ' + tipo;
+      box.textContent = msg;
     }
 
-    function actualizarLineaPresupuesto(i, campo, valor) {
+    async function enviarDrive(payload) {
+      // Guardado por JSONP/GET: evita CORS e iframe oculto.
+      // Apps Script debe tener doGet que acepte accion=guardarHistoria&payload=...&callback=...
+      return new Promise((resolve) => {
+        const callbackName = 'hcvSaveCallback_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const script = document.createElement('script');
 
-      sincronizarPresupuestoActual();
+        const timeout = setTimeout(() => {
+          limpiar();
+          resolve({ ok:false, mensaje:'Tiempo de espera agotado comunicando con Google Drive.' });
+        }, 45000);
 
-      if (!presupuestoActual.lineas[i]) return;
-
-      presupuestoActual.lineas[i][campo] = campo === 'valor' ? Number(valor || 0) : valor;
-
-      renderPresupuestoActual(false);
-
-    }
-
-    function eliminarLineaPresupuesto(i) {
-
-      sincronizarPresupuestoActual();
-
-      if (!confirm('¿Eliminar esta línea del presupuesto?')) return;
-
-      presupuestoActual.lineas.splice(i, 1);
-
-      renderPresupuestoActual();
-
-    }
-
-    function calcularTotalPresupuesto(p) {
-
-      const subtotal = (p.lineas || []).reduce((acc, l) => acc + Number(l.valor || 0), 0);
-
-      const descuento = Number(p.descuento || 0);
-
-      const total = Math.max(0, subtotal - descuento);
-
-      return { subtotal, descuento, total };
-
-    }
-
-    function renderPresupuestoActual(redibujarTabla = true) {
-
-      sincronizarPresupuestoActual();
-
-      const cont = document.getElementById('budgetLineasCont');
-
-      if (!cont) return;
-
-      if (redibujarTabla) {
-
-        if (!presupuestoActual.lineas || !presupuestoActual.lineas.length) {
-
-          cont.innerHTML = '<div class="empty-evolution">Sin líneas. Use “Traer tratamientos del odontograma” o “Agregar línea”.</div>';
-
-        } else {
-
-          cont.innerHTML = `
-
-            <table class="budget-lines-table">
-
-              <thead><tr><th>Pieza</th><th>Detalle / Tratamiento</th><th>Valor</th><th>Observación</th><th></th></tr></thead>
-
-              <tbody>
-
-                ${presupuestoActual.lineas.map((l, i) => `
-
-                  <tr>
-
-                    <td style="width:90px;"><input value="${escapar(l.pieza || '')}" onchange="actualizarLineaPresupuesto(${i}, 'pieza', this.value)"></td>
-
-                    <td><input value="${escapar(l.detalle || '')}" onchange="actualizarLineaPresupuesto(${i}, 'detalle', this.value)"></td>
-
-                    <td style="width:130px;"><div class="money-field"><span>$</span><input type="number" step="0.01" value="${Number(l.valor || 0)}" onchange="actualizarLineaPresupuesto(${i}, 'valor', this.value)"></div></td>
-
-                    <td><input value="${escapar(l.observacion || '')}" onchange="actualizarLineaPresupuesto(${i}, 'observacion', this.value)"></td>
-
-                    <td style="width:80px;"><button type="button" class="mini-btn danger" onclick="eliminarLineaPresupuesto(${i})">Eliminar</button></td>
-
-                  </tr>`).join('')}
-
-              </tbody>
-
-            </table>`;
-
+        function limpiar() {
+          clearTimeout(timeout);
+          try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
+          if (script && script.parentNode) script.parentNode.removeChild(script);
         }
 
-      }
+        window[callbackName] = function(respuesta) {
+          limpiar();
+          resolve(respuesta || { ok:false, mensaje:'Respuesta vacía de Google Drive.' });
+        };
 
-      const tot = calcularTotalPresupuesto(presupuestoActual);
+        script.onerror = function() {
+          limpiar();
+          resolve({ ok:false, mensaje:'No se pudo conectar con Google Drive para guardar la historia.' });
+        };
 
-      const subEl = document.getElementById('budgetSubtotal');
+        script.src = APPS_SCRIPT_URL
+          + '?accion=guardarHistoria'
+          + '&payload=' + encodeURIComponent(JSON.stringify(payload))
+          + '&callback=' + encodeURIComponent(callbackName)
+          + '&t=' + Date.now();
 
-      const totalEl = document.getElementById('budgetTotal');
-
-      const letrasEl = document.getElementById('budgetTotalLetras');
-
-      if (subEl) subEl.textContent = formatoUSD(tot.subtotal);
-
-      if (totalEl) totalEl.textContent = formatoUSD(tot.total);
-
-      if (letrasEl) letrasEl.textContent = numeroALetrasBasico(tot.total);
-
+        document.body.appendChild(script);
+      });
     }
 
-    function guardarPresupuestoActual() {
+    function buscarDriveJSONP(cedulaBuscar) {
+      // Búsqueda por JSONP: evita bloqueos CORS de GitHub Pages con Google Apps Script.
+      // La cédula se limpia a números para evitar espacios, guiones o caracteres invisibles.
+      const cedulaLimpia = String(cedulaBuscar || '').replace(/\D/g, '');
+      return new Promise((resolve) => {
+        const callbackName = 'hcvDriveCallback_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => {
+          limpiar();
+          resolve({ ok:false, mensaje:'Tiempo de espera agotado buscando en Google Drive.' });
+        }, 45000);
 
-      sincronizarPresupuestoActual();
+        function limpiar() {
+          clearTimeout(timeout);
+          try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
+          if (script && script.parentNode) script.parentNode.removeChild(script);
+        }
 
-      if (!presupuestoActual.lineas || !presupuestoActual.lineas.length) {
+        window[callbackName] = function(respuesta) {
+          limpiar();
+          resolve(respuesta || { ok:false, mensaje:'Respuesta vacía de Google Drive.' });
+        };
 
-        alert('Agregue al menos una línea antes de guardar el presupuesto.');
+        script.onerror = function() {
+          limpiar();
+          resolve({ ok:false, mensaje:'No se pudo conectar con Google Drive para buscar la historia.' });
+        };
 
-        return;
+        script.src = APPS_SCRIPT_URL
+          + '?accion=buscarHistoria'
+          + '&cedula=' + encodeURIComponent(cedulaLimpia)
+          + '&callback=' + encodeURIComponent(callbackName)
+          + '&t=' + Date.now();
 
+        document.body.appendChild(script);
+      });
+    }
+
+
+    async function guardarHistoriaDrive(silencioso=false) {
+      if(!validarMinimo()) return false;
+      calcularEdad();
+      const datos = obtenerDatosFormulario();
+      setDriveStatus('Guardando historia clínica en Google Drive...', 'info');
+      try {
+        const r = await enviarDrive({ accion:'guardarHistoria', ...datos });
+        if(r.ok) {
+          localStorage.setItem(VERSION_KEY + datos.cedula.trim(), JSON.stringify(datos));
+          setDriveStatus('✓ ' + (r.mensaje || 'Historia guardada en Drive') + ' · Carpeta: ' + (r.carpetaPaciente || datos.nombreArchivo), 'ok');
+          actualizarListaPacientes();
+          if(!silencioso) alert('Historia clínica guardada correctamente en Google Drive.');
+          return true;
+        }
+        setDriveStatus('Error: ' + (r.mensaje || 'No se pudo guardar en Drive'), 'err');
+        if(!silencioso) alert(r.mensaje || 'No se pudo guardar en Drive');
+        return false;
+      } catch(err) {
+        setDriveStatus('Error de conexión con Apps Script: ' + err.message, 'err');
+        if(!silencioso) alert('No se pudo conectar con Google Drive. Revise la implementación de Apps Script.');
+        return false;
+      }
+    }
+
+    async function buscarPacienteDrive(silencioso=false) {
+      const campoBuscar = document.getElementById('buscarCedula');
+      const campoCedula = document.getElementById('cedula');
+
+      const candidatos = [];
+      const agregar = (v) => {
+        const limpio = String(v || '').replace(/\D/g, '');
+        if (limpio && !candidatos.includes(limpio)) candidatos.push(limpio);
+      };
+
+      // Primero usa el campo "Buscar local por cédula", luego el campo de cédula del formulario.
+      agregar(campoBuscar ? campoBuscar.value : '');
+      agregar(campoCedula ? campoCedula.value : '');
+
+      if(!candidatos.length){
+        if(!silencioso) alert('Ingrese una cédula para buscar en Google Drive.');
+        return false;
       }
 
-      presupuestoActual.fechaGuardado = new Date().toISOString();
+      setDriveStatus('Buscando historia en Google Drive para la cédula ' + candidatos[0] + '...', 'info');
 
-      const idx = presupuestos.findIndex(p => p.id === presupuestoActual.id);
+      try {
+        let respuestaFinal = null;
+        let cedulaEncontrada = '';
 
-      const copia = JSON.parse(JSON.stringify(presupuestoActual));
+        for (const c of candidatos) {
+          setDriveStatus('Consultando Google Drive: ' + c + '...', 'info');
+          const r = await buscarDriveJSONP(c);
+          console.log('Respuesta buscarHistoria Drive JSONP para ' + c + ':', r);
 
-      if (idx >= 0) {
+          if (r && r.ok && r.data) {
+            respuestaFinal = r;
+            cedulaEncontrada = c;
+            break;
+          }
 
-        presupuestos[idx] = copia;
+          respuestaFinal = r;
+        }
 
+        if(respuestaFinal && respuestaFinal.ok && respuestaFinal.data) {
+          cargarDatosFormulario(respuestaFinal.data);
+
+          try {
+            const cedGuardar = String(respuestaFinal.data.cedula || cedulaEncontrada).trim();
+            if (cedGuardar) localStorage.setItem(VERSION_KEY + cedGuardar, JSON.stringify(respuestaFinal.data));
+          } catch(e) {}
+
+          setDriveStatus('✓ Historia encontrada y cargada desde Google Drive · Carpeta: ' + (respuestaFinal.carpetaPaciente || respuestaFinal.data.nombreArchivo || ''), 'ok');
+          if(!silencioso) alert('Paciente encontrado y cargado desde Google Drive.');
+          return true;
+        }
+
+        const msg = (respuestaFinal && respuestaFinal.mensaje) ? respuestaFinal.mensaje : 'No se encontró historia clínica en Google Drive.';
+        setDriveStatus(msg + ' · Cédula(s) consultada(s): ' + candidatos.join(', '), 'err');
+        if(!silencioso) alert(msg + '\n\nCédula(s) consultada(s): ' + candidatos.join(', '));
+        return false;
+
+      } catch(err) {
+        console.error('Error buscando en Drive:', err);
+        setDriveStatus('Error de conexión con Apps Script: ' + err.message, 'err');
+        if(!silencioso) alert('No se pudo conectar con Google Drive.');
+        return false;
+      }
+    }
+
+
+    function nuevoPaciente() { if(confirm('¿Desea limpiar el formulario para crear un nuevo paciente?')) limpiarFormulario(); }
+    function limpiarFormulario() { formHistoria.reset(); buscarCedula.value=''; edad.value=''; evoluciones=[]; examenes=[]; editandoEvolucionIndex=null; actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); actualizarResumenPaciente(); }
+    function eliminarPaciente() { const c=cedula.value.trim(); if(!c){ alert('Primero cargue o ingrese la cédula del paciente.'); return; } if(!confirm('¿Eliminar la historia guardada de la cédula ' + c + ' en este navegador?')) return; localStorage.removeItem(VERSION_KEY+c); actualizarListaPacientes(); alert('Paciente eliminado del almacenamiento local.'); }
+    function descargarJSON() { if(!validarMinimo()) return; const datos=obtenerDatosFormulario(); const blob=new Blob([JSON.stringify(datos,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=datos.nombreArchivo+'_historia_clinica_HCV3_1.json'; a.click(); URL.revokeObjectURL(a.href); }
+    function importarJSONClick() { document.getElementById('importFile').click(); }
+    function importarJSON(event) { const file=event.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=e=>{ try{ const datos=JSON.parse(e.target.result); cargarDatosFormulario(datos); alert('Datos importados correctamente.'); }catch(err){ alert('El archivo no tiene un formato JSON válido.'); } }; reader.readAsText(file); event.target.value=''; }
+    function generarPDF() { if(!validarMinimo()) return; window.print(); }
+
+    function generarHistoriaBlancoPDF() {
+      const logoSrc = document.querySelector('.logo-box img')?.src || '';
+      const hoy = new Date().toLocaleDateString('es-EC');
+      const preguntas = [
+        '¿Ha sido hospitalizado últimamente?',
+        '¿Está usted en tratamiento médico actualmente?',
+        '¿Está usted tomando algún medicamento?',
+        '¿Es alérgico a algún medicamento?',
+        '¿Ha tenido hemorragias que requieran tratamiento especial?',
+        '¿Ha tenido complicaciones por anestesia local?',
+        '¿Está usted embarazada actualmente?',
+        '¿Ha comido en las últimas horas?',
+        '¿Fuma?'
+      ];
+      const enfermedades = ['Hipertensión','Diabetes','Problemas cardíacos','Problemas renales','Tiroides','Osteoporosis','Anticoagulantes','Cáncer','Otros'];
+      const estilos = `
+        <style>
+          *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#252344;background:white;font-size:12px} .page{padding:22px;max-width:980px;margin:0 auto}
+          .header{border:1.5px solid #8a6fc5;border-radius:8px;padding:12px 16px;display:grid;grid-template-columns:150px 1fr 150px;gap:15px;align-items:center;margin-bottom:12px}
+          .header img{width:140px;max-height:75px;object-fit:contain}.title h1{margin:0;color:#8a6fc5;font-size:22px;line-height:1.18;letter-spacing:1px}.title p{margin:5px 0 0;color:#55506e;font-size:11px}.date{text-align:right;color:#6f55ad;font-weight:700}
+          h2{background:#efe9fb;color:#6f55ad;border:1px solid #c7b7ea;padding:7px 9px;border-radius:5px;font-size:13px;margin:12px 0 8px;text-transform:uppercase}
+          .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.field{border:1px solid #d7d2e4;border-radius:5px;min-height:36px;padding:5px 7px}.field label{display:block;color:#6f55ad;font-weight:800;font-size:9px;text-transform:uppercase;margin-bottom:10px}.full{grid-column:1/-1}.line{height:18px;border-bottom:1px solid #aaa}
+          table{width:100%;border-collapse:collapse;margin-top:6px} th{background:#f3eefc;color:#6f55ad;text-align:left;font-size:10px} th,td{border:1px solid #d7d2e4;padding:6px;vertical-align:top}.box{display:inline-block;width:13px;height:13px;border:1px solid #777;margin-right:5px;vertical-align:middle}.small{font-size:10px;color:#666}.signature{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:32px}.sign-line{border-top:1px solid #333;text-align:center;padding-top:6px;font-size:11px}
+          @media print{body{margin:0}.page{padding:14px}.no-print{display:none}.header{break-inside:avoid} h2{break-after:avoid}}
+        </style>`;
+      const datosGenerales = ['Cédula / Nº Historia','Primer Apellido','Segundo Apellido','Nombres','Dirección','Teléfono','Fecha de Nacimiento','Edad','Referido por','Fecha de Primera Atención','Enfermedades Preexistentes','Motivo de Primera Consulta'];
+      const camposHTML = datosGenerales.map((x,i)=>`<div class="field ${i>=10?'full':''}"><label>${x}</label><div class="line"></div></div>`).join('');
+      const preguntasHTML = preguntas.map((p,i)=>`<tr><td style="width:35px">${i+1}</td><td>${p}</td><td style="width:55px"><span class="box"></span>Sí</td><td style="width:55px"><span class="box"></span>No</td><td></td></tr>`).join('');
+      const enfHTML = enfermedades.map(e=>`<div><span class="box"></span>${e}</div>`).join('');
+      const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Historia Clínica en Blanco</title>${estilos}</head><body><div class="page">
+        <div class="header"><div>${logoSrc ? `<img src="${logoSrc}">` : ''}</div><div class="title"><h1>CENTRO ODONTOLÓGICO<br>DRA. CECILIA GALLARDO</h1><p>Historia Clínica Odontológica</p></div><div class="date">Fecha:<br>${hoy}</div></div>
+        <h2>Datos Generales del Paciente</h2><div class="grid">${camposHTML}</div>
+        <h2>Historia Médica</h2><table><thead><tr><th>#</th><th>Pregunta</th><th>Sí</th><th>No</th><th>Observaciones</th></tr></thead><tbody>${preguntasHTML}</tbody></table>
+        <h2>Enfermedades Sistémicas</h2><div class="grid">${enfHTML}</div><div class="field full" style="margin-top:8px"><label>Observaciones adicionales</label><div class="line"></div><div class="line"></div></div>
+        <h2>Antecedentes Odontológicos</h2><div class="grid2"><div class="field"><label>Última visita odontológica</label><div class="line"></div></div><div class="field"><label>Motivo de consulta actual</label><div class="line"></div></div><div class="field"><label>Dolor</label><div class="line"></div></div><div class="field"><label>Sensibilidad</label><div class="line"></div></div><div class="field"><label>Sangrado</label><div class="line"></div></div><div class="field"><label>Movilidad dental</label><div class="line"></div></div><div class="field full"><label>Observaciones odontológicas</label><div class="line"></div><div class="line"></div></div></div>
+        <h2>Evolución Clínica</h2><table><thead><tr><th>Fecha</th><th>Pieza</th><th>Diagnóstico</th><th>Procedimiento</th><th>Observaciones</th></tr></thead><tbody><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+        <div class="signature"><div class="sign-line">Firma del paciente / representante</div><div class="sign-line">Firma del odontólogo</div></div>
+      </div><script>window.onload=function(){setTimeout(function(){window.print();},300)};<\/script></body></html>`;
+      const w = window.open('', '_blank');
+      if(!w){ alert('El navegador bloqueó la ventana emergente. Permita pop-ups para generar el PDF en blanco.'); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
+
+
+    function generarFormularioPaciente() {
+      const logoSrc = document.querySelector('.logo-box img')?.src || '';
+      const hoy = new Date().toLocaleDateString('es-EC');
+      const estilos = `
+        <style>
+          *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f8f6fd;color:#252344;font-size:13px}.page{max-width:980px;margin:0 auto;padding:18px}.header{border:1.5px solid #8a6fc5;border-radius:10px;padding:13px 16px;display:grid;grid-template-columns:150px 1fr 150px;gap:15px;align-items:center;background:white;margin-bottom:12px}.header img{width:140px;max-height:75px;object-fit:contain}.title h1{margin:0;color:#8a6fc5;font-size:23px;line-height:1.18;letter-spacing:1px}.title p{margin:6px 0 0;color:#55506e}.date{text-align:right;color:#6f55ad;font-weight:800}.notice{background:#efe9fb;border:1px solid #c7b7ea;border-radius:8px;padding:10px 12px;margin:10px 0 12px;color:#4a4269}h2{background:#efe9fb;color:#6f55ad;border:1px solid #c7b7ea;padding:8px 10px;border-radius:6px;font-size:13px;margin:12px 0 8px;text-transform:uppercase}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.full{grid-column:1/-1}label{display:block;color:#6f55ad;font-weight:900;font-size:10px;text-transform:uppercase;margin-bottom:5px}input,textarea{width:100%;border:1px solid #d7d2e4;border-radius:6px;padding:9px;background:white;font-size:13px}textarea{min-height:52px;resize:vertical}.checks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 18px}.check{display:flex;align-items:center;gap:7px}.check input{width:auto}table{width:100%;border-collapse:collapse;background:white}th{background:#f3eefc;color:#6f55ad;text-align:left;font-size:10px}th,td{border:1px solid #d7d2e4;padding:6px;vertical-align:top}.yn{display:flex;gap:15px;align-items:center}.toolbar{position:sticky;top:0;z-index:5;background:white;border-bottom:1px solid #ddd;padding:10px;display:flex;gap:8px;justify-content:center}button{border:0;border-radius:7px;padding:10px 14px;font-weight:900;cursor:pointer}.primary{background:linear-gradient(90deg,#6f55ad,#8a6fc5);color:white}.secondary{background:#fff;color:#6f55ad;border:1px solid #c7b7ea}.signature{display:grid;grid-template-columns:1fr 1fr;gap:35px;margin-top:34px}.sign-line{border-top:1px solid #333;text-align:center;padding-top:7px;font-size:11px}.small{font-size:11px;color:#666}.file-suggest{font-weight:900;color:#6f55ad;letter-spacing:1px}@media(max-width:800px){.header,.grid,.grid2,.checks{grid-template-columns:1fr}.date{text-align:left}}@media print{body{background:white}.toolbar{display:none}.page{padding:12px}.notice{background:white}.header{break-inside:avoid}input,textarea{border:1px solid #aaa}.no-print{display:none}}
+        </style>`;
+      const preguntas = [
+        '¿Ha sido hospitalizado últimamente?',
+        '¿Está usted en tratamiento médico actualmente?',
+        '¿Está usted tomando algún medicamento?',
+        '¿Es alérgico a algún medicamento?',
+        '¿Ha tenido hemorragias que requieran tratamiento especial?',
+        '¿Ha tenido complicaciones por anestesia local?',
+        '¿Está usted embarazada actualmente?',
+        '¿Ha comido en las últimas horas?',
+        '¿Fuma?'
+      ];
+      const enfermedades = ['Hipertensión','Diabetes','Problemas cardíacos','Problemas renales','Tiroides','Osteoporosis','Anticoagulantes','Cáncer','Otros'];
+      const preguntaRows = preguntas.map((p,i)=>`<tr><td style="width:35px">${i+1}</td><td>${p}</td><td style="width:120px"><label class="yn"><span><input type="radio" name="p${i}"> Sí</span><span><input type="radio" name="p${i}"> No</span></label></td><td><input type="text" placeholder="Observaciones"></td></tr>`).join('');
+      const enfHTML = enfermedades.map((e,i)=>`<label class="check"><input type="checkbox" id="enf${i}"> ${e}</label>`).join('');
+      const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Formulario Paciente - Historia Clínica</title>${estilos}</head><body>
+        <div class="toolbar no-print"><button type="button" class="primary" onclick="actualizarNombre(); window.print();">📄 Generar PDF / Guardar</button><button type="button" class="secondary" onclick="actualizarNombre()">🔄 Actualizar nombre sugerido</button></div>
+        <div class="page">
+          <div class="header"><div>${logoSrc ? `<img src="${logoSrc}">` : ''}</div><div class="title"><h1>CENTRO ODONTOLÓGICO<br>DRA. CECILIA GALLARDO</h1><p>Formulario de Historia Clínica Odontológica para Paciente</p></div><div class="date">Fecha:<br>${hoy}</div></div>
+          <div class="notice"><b>Instrucciones para el paciente:</b> complete la información solicitada, luego presione <b>“Generar PDF / Guardar”</b> y reenvíe el PDF al consultorio. Nombre sugerido del archivo: <span id="nombreSugerido" class="file-suggest">CEDULA_PRIMERAPELLIDO_SEGUNDOAPELLIDO</span></div>
+          <h2>Datos generales del paciente</h2>
+          <div class="grid">
+            <div><label>Cédula / Nº Historia</label><input id="cedula" oninput="actualizarNombre()"></div>
+            <div><label>Primer Apellido</label><input id="primerApellido" oninput="actualizarNombre()"></div>
+            <div><label>Segundo Apellido</label><input id="segundoApellido" oninput="actualizarNombre()"></div>
+            <div><label>Nombres</label><input></div>
+            <div><label>Teléfono</label><input></div>
+            <div><label>Fecha de Nacimiento</label><input type="date"></div>
+            <div class="full"><label>Dirección</label><input></div>
+            <div><label>Referido por</label><input></div>
+            <div><label>Fecha de primera atención</label><input type="date"></div>
+            <div><label>Edad</label><input></div>
+            <div class="full"><label>Enfermedades preexistentes</label><textarea></textarea></div>
+            <div class="full"><label>Motivo de primera consulta</label><textarea></textarea></div>
+          </div>
+          <h2>Historia médica</h2>
+          <table><thead><tr><th>#</th><th>Pregunta</th><th>Sí / No</th><th>Observaciones</th></tr></thead><tbody>${preguntaRows}</tbody></table>
+          <h2>Enfermedades sistémicas</h2>
+          <div class="checks">${enfHTML}</div>
+          <div class="full" style="margin-top:9px"><label>Otras enfermedades / observaciones</label><textarea></textarea></div>
+          <h2>Antecedentes odontológicos</h2>
+          <div class="grid2"><div><label>Última visita odontológica</label><input></div><div><label>Motivo de consulta actual</label><input></div><div><label>Dolor</label><input></div><div><label>Sensibilidad</label><input></div><div><label>Sangrado</label><input></div><div><label>Movilidad dental</label><input></div><div class="full"><label>Observaciones odontológicas</label><textarea></textarea></div></div>
+          <div class="signature"><div class="sign-line">Firma del paciente / representante</div><div class="sign-line">Firma del odontólogo</div></div>
+        </div>
+        <script>
+          function limpiarTexto(t){return (t||'').toString().trim().toUpperCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');}
+          function actualizarNombre(){var c=limpiarTexto(document.getElementById('cedula').value)||'CEDULA';var p=limpiarTexto(document.getElementById('primerApellido').value)||'PRIMERAPELLIDO';var s=limpiarTexto(document.getElementById('segundoApellido').value)||'SEGUNDOAPELLIDO';document.getElementById('nombreSugerido').textContent=c+'_'+p+'_'+s;document.title='Historia_Clinica_'+c+'_'+p+'_'+s;}
+        <\/script>
+      </body></html>`;
+      const w = window.open('', '_blank');
+      if(!w){ alert('El navegador bloqueó la ventana emergente. Permita pop-ups para abrir el formulario del paciente.'); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
+
+    function datosEvolucionActual() {
+      const ev={}; CAMPOS_EVOLUCION.forEach(c=>ev[c.replace('ev','').charAt(0).toLowerCase()+c.replace('ev','').slice(1)] = document.getElementById(c)?.value || '');
+      ev.id = editandoEvolucionIndex !== null && evoluciones[editandoEvolucionIndex] ? evoluciones[editandoEvolucionIndex].id : 'EV-' + String(evoluciones.length + 1).padStart(6,'0');
+      ev.fechaRegistro = new Date().toISOString();
+      return ev;
+    }
+
+    function agregarEvolucion() {
+      if(!validarMinimo()) return;
+      if(!evFecha.value || !evDiagnostico.value.trim() || !evProcedimiento.value.trim()) { alert('Para agregar una evolución, llene al menos: fecha, diagnóstico y procedimiento realizado.'); return; }
+      const ev = datosEvolucionActual();
+      if(editandoEvolucionIndex !== null) {
+        evoluciones[editandoEvolucionIndex] = ev;
+        editandoEvolucionIndex = null;
+        alert('Evolución actualizada correctamente.');
       } else {
+        evoluciones.push(ev);
+        alert('Evolución agregada correctamente.');
+      }
+      limpiarEvolucion(); renderEvoluciones(); guardarHistoria();
+    }
 
-        presupuestos.push(copia);
+    function limpiarEvolucion() { CAMPOS_EVOLUCION.forEach(c=>{ if(document.getElementById(c)) document.getElementById(c).value=''; }); editandoEvolucionIndex=null; }
 
+    function duplicarUltimaEvolucion() {
+      if(!evoluciones.length) { alert('Este paciente aún no tiene evoluciones para duplicar.'); return; }
+      const ultima = evoluciones
+        .map((e,i)=>({...e,_idx:i}))
+        .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''))[0];
+      evFecha.value = new Date().toISOString().slice(0,10);
+      evMotivo.value = ultima.motivo || '';
+      evDiagnostico.value = ultima.diagnostico || '';
+      evPieza.value = ultima.pieza || '';
+      evProcedimiento.value = ultima.procedimiento || '';
+      evTratamiento.value = ultima.tratamiento || '';
+      evMedicamentos.value = ultima.medicamentos || '';
+      evObservaciones.value = ultima.observaciones || '';
+      evProximaCita.value = '';
+      editandoEvolucionIndex = null;
+      window.scrollTo({top: document.querySelector('.evolution-card').offsetTop - 10, behavior:'smooth'});
+      alert('Se copió la última evolución en el formulario. Revise la fecha, observaciones y próxima cita antes de guardar.');
+    }
+    function formatearFecha(f) { if(!f) return '—'; const [y,m,d]=f.split('-'); return d&&m&&y ? `${d}/${m}/${y}` : f; }
+    function textoCorto(t, n=50) { t = t || '—'; return t.length > n ? t.slice(0,n) + '…' : t; }
+    function escapar(t) { return String(t||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+
+    function renderEvoluciones() {
+      actualizarResumenPaciente();
+      if(!contenedorEvoluciones) return;
+      if(!evoluciones.length) { contenedorEvoluciones.innerHTML = '<div class="empty-evolution">Todavía no hay evoluciones registradas para este paciente.</div>'; return; }
+      const ordenadas = evoluciones.map((e,i)=>({...e,_idx:i})).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+      let html = '<table class="evolution-table"><thead><tr><th>Fecha</th><th>Pieza</th><th>Diagnóstico</th><th>Procedimiento</th><th>Próxima cita</th><th class="actions-print-hide">Acciones</th></tr></thead><tbody>';
+      ordenadas.forEach(ev=>{ html += `<tr><td>${formatearFecha(ev.fecha)}<br><small>${ev.id||''}</small></td><td>${escapar(ev.pieza||'—')}</td><td>${escapar(textoCorto(ev.diagnostico))}</td><td>${escapar(textoCorto(ev.procedimiento))}</td><td>${formatearFecha(ev.proximaCita)}</td><td class="actions-print-hide"><button type="button" class="secondary mini-btn" onclick="verEvolucion(${ev._idx})">👁 Ver</button><button type="button" class="secondary mini-btn" onclick="editarEvolucion(${ev._idx})">✏ Editar</button><button type="button" class="danger mini-btn" onclick="eliminarEvolucion(${ev._idx})">🗑 Eliminar</button></td></tr>`; });
+      html += '</tbody></table>'; contenedorEvoluciones.innerHTML = html;
+    }
+
+    function verEvolucion(i) {
+      const ev=evoluciones[i]; if(!ev) return;
+      alert(`${ev.id}\nFecha: ${formatearFecha(ev.fecha)}\nPieza: ${ev.pieza || '—'}\n\nMotivo:\n${ev.motivo || '—'}\n\nDiagnóstico:\n${ev.diagnostico || '—'}\n\nProcedimiento:\n${ev.procedimiento || '—'}\n\nTratamiento:\n${ev.tratamiento || '—'}\n\nMedicamentos:\n${ev.medicamentos || '—'}\n\nObservaciones:\n${ev.observaciones || '—'}\n\nPróxima cita: ${formatearFecha(ev.proximaCita)}`);
+    }
+    function editarEvolucion(i) { const ev=evoluciones[i]; if(!ev) return; evFecha.value=ev.fecha||''; evMotivo.value=ev.motivo||''; evDiagnostico.value=ev.diagnostico||''; evPieza.value=ev.pieza||''; evProcedimiento.value=ev.procedimiento||''; evTratamiento.value=ev.tratamiento||''; evMedicamentos.value=ev.medicamentos||''; evObservaciones.value=ev.observaciones||''; evProximaCita.value=ev.proximaCita||''; editandoEvolucionIndex=i; window.scrollTo({top: document.querySelector('.evolution-card').offsetTop - 10, behavior:'smooth'}); }
+    function eliminarEvolucion(i) { if(!confirm('¿Eliminar esta evolución clínica?')) return; evoluciones.splice(i,1); renderEvoluciones(); guardarHistoria(); guardarHistoriaDrive(true); }
+
+    function limpiarExamen() {
+      if(document.getElementById('exFecha')) exFecha.value = '';
+      if(document.getElementById('exTipo')) exTipo.value = 'RX';
+      if(document.getElementById('exDescripcion')) exDescripcion.value = '';
+      if(document.getElementById('exLink')) exLink.value = '';
+      if(document.getElementById('exArchivo')) exArchivo.value = '';
+    }
+
+    function archivoABase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function agregarExamen() {
+      const fecha = exFecha?.value || '';
+      const tipo = exTipo?.value || 'Otro';
+      const descripcion = exDescripcion?.value || '';
+      const link = exLink?.value || '';
+      const file = exArchivo?.files?.[0] || null;
+      if(!descripcion && !link && !file) { alert('Ingrese una descripción, un link o seleccione un archivo.'); return; }
+      if(!validarMinimo()) { alert('Para guardar exámenes primero ingrese cédula, primer apellido y segundo apellido.'); return; }
+
+      const examen = { id:'EX-' + String(examenes.length + 1).padStart(6,'0'), fecha, tipo, descripcion, link, fechaRegistro:new Date().toISOString() };
+
+      if(file) {
+        setDriveStatus('Subiendo archivo del examen a Google Drive...', 'info');
+        try {
+          const archivoBase64 = await archivoABase64(file);
+          const r = await enviarDrive({
+            accion:'subirExamenArchivo',
+            cedula: cedula.value,
+            primerApellido: primerApellido.value,
+            segundoApellido: segundoApellido.value,
+            tipo,
+            descripcion,
+            fecha,
+            archivoNombre: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            archivoBase64
+          });
+          if(!r.ok) { setDriveStatus('Error subiendo archivo: ' + (r.mensaje || ''), 'err'); alert(r.mensaje || 'No se pudo subir el archivo.'); return; }
+          examen.fileName = r.fileName || file.name;
+          examen.fileUrl = r.fileUrl || '';
+          examen.fileId = r.fileId || '';
+          examen.carpetaPaciente = r.carpetaPaciente || '';
+          setDriveStatus('✓ Archivo de examen subido a Drive.', 'ok');
+        } catch(err) {
+          setDriveStatus('Error subiendo archivo: ' + err.message, 'err');
+          alert('No se pudo subir el archivo al Drive.');
+          return;
+        }
       }
 
-      renderHistorialPresupuestos();
-
-      cargarPresupuestoActualEnPantalla();
-
-      alert('Presupuesto guardado dentro de la historia clínica. Recuerde presionar “Guardar en Google Drive” para respaldarlo en Drive.');
-
+      examenes.push(examen);
+      renderExamenes();
+      limpiarExamen();
+      await guardarHistoriaDrive(true);
     }
 
-    function cargarPresupuesto(id) {
-
-      const p = presupuestos.find(x => x.id === id);
-
-      if (!p) return;
-
-      presupuestoActual = JSON.parse(JSON.stringify(p));
-
-      presupuestoActualId = presupuestoActual.id;
-
-      cargarPresupuestoActualEnPantalla();
-
-      renderPresupuestoActual();
-
-      renderHistorialPresupuestos();
-
+    function renderExamenes() {
+      const cont = document.getElementById('contenedorExamenes');
+      if(!cont) return;
+      if(!examenes.length) { cont.innerHTML = '<div class="empty-examen">Todavía no hay exámenes, RX o links registrados para este paciente.</div>'; return; }
+      const ordenados = examenes.map((e,i)=>({...e,_idx:i})).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+      let html = '<table class="examenes-table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Archivo / Link</th><th class="actions-print-hide">Acciones</th></tr></thead><tbody>';
+      ordenados.forEach(e => {
+        const enlaces = [];
+        if(e.fileUrl) enlaces.push(`<a target="_blank" href="${escapar(e.fileUrl)}">📎 ${escapar(e.fileName || 'Archivo')}</a>`);
+        if(e.link) enlaces.push(`<a target="_blank" href="${escapar(e.link)}">🔗 Link externo</a>`);
+        html += `<tr><td>${formatearFecha(e.fecha)}<br><small>${escapar(e.id||'')}</small></td><td>${escapar(e.tipo||'—')}</td><td>${escapar(e.descripcion||'—')}</td><td class="link-cell">${enlaces.length ? enlaces.join('<br>') : '—'}</td><td class="actions-print-hide"><button type="button" class="secondary mini-btn" onclick="verExamen(${e._idx})">👁 Ver</button><button type="button" class="danger mini-btn" onclick="eliminarExamen(${e._idx})">🗑 Eliminar</button></td></tr>`;
+      });
+      html += '</tbody></table>';
+      cont.innerHTML = html;
     }
 
-    function eliminarPresupuesto(id) {
-
-      if (!confirm('¿Eliminar este presupuesto guardado?')) return;
-
-      presupuestos = presupuestos.filter(p => p.id !== id);
-
-      if (presupuestoActual && presupuestoActual.id === id) nuevoPresupuesto();
-
-      renderHistorialPresupuestos();
-
+    function verExamen(i) {
+      const e = examenes[i]; if(!e) return;
+      alert(`${e.id || ''}\nFecha: ${formatearFecha(e.fecha)}\nTipo: ${e.tipo || '—'}\nDescripción: ${e.descripcion || '—'}\nArchivo: ${e.fileName || '—'}\nLink archivo: ${e.fileUrl || '—'}\nLink externo: ${e.link || '—'}`);
     }
 
-    function duplicarPresupuesto(id) {
-
-      const p = presupuestos.find(x => x.id === id);
-
-      if (!p) return;
-
-      presupuestoActual = JSON.parse(JSON.stringify(p));
-
-      presupuestoActual.id = 'PRES_' + Date.now();
-
-      presupuestoActual.titulo = (presupuestoActual.titulo || 'Presupuesto') + ' - copia';
-
-      presupuestoActual.fecha = fechaISOHoy();
-
-      cargarPresupuestoActualEnPantalla();
-
-      renderPresupuestoActual();
-
-      renderHistorialPresupuestos();
-
+    async function eliminarExamen(i) {
+      if(!confirm('¿Eliminar este examen del listado de la historia clínica?\n\nNota: esto elimina el registro de la historia, no borra el archivo físico de Drive.')) return;
+      examenes.splice(i,1);
+      renderExamenes();
+      await guardarHistoriaDrive(true);
     }
 
-    function renderHistorialPresupuestos() {
 
-      const cont = document.getElementById('historialPresupuestos');
+    const ODONTO_COLORES = {
+      '': '#ffffff',
+      'Caries': '#E53935',
+      'Restauración': '#B8A4D4',
+      'Corona': '#1565C0',
+      'Implante': '#2E7D32',
+      'Endodoncia': '#EF6C00',
+      'Ausente': '#616161',
+      'Carilla': '#FBC02D',
+      'Prótesis': '#9C27B0',
+      'Extracción indicada': '#D81B60'
+    };
 
+    const ODONTO_FILAS = [
+      ['18','17','16','15','14','13','12','11','GAP','21','22','23','24','25','26','27','28'],
+      ['48','47','46','45','44','43','42','41','GAP','31','32','33','34','35','36','37','38']
+    ];
+
+    function crearDienteHTML(numero) {
+      if (numero === 'GAP') return '<div class="quadrant-gap"></div>';
+      const info = odontograma[numero] || {};
+      const color = ODONTO_COLORES[info.estado || ''] || '#ffffff';
+      return `
+        <div class="tooth ${piezaOdontoActiva === numero ? 'activa' : ''}" onclick="seleccionarPiezaOdontograma('${numero}')" title="Pieza ${numero}">
+          <div class="tooth-shape" style="background:${color}">
+            <div class="surface top" style="background:${color}"></div>
+            <div class="surface left" style="background:${color}"></div>
+            <div class="surface center" style="background:${color}"></div>
+            <div class="surface right" style="background:${color}"></div>
+            <div class="surface bottom" style="background:${color}"></div>
+          </div>
+          <div class="tooth-number">${numero}</div>
+        </div>`;
+    }
+
+    function renderOdontograma() {
+      const cont = document.getElementById('odontograma');
       if (!cont) return;
+      cont.innerHTML = ODONTO_FILAS.map(fila =>
+        `<div class="odontograma-row">${fila.map(crearDienteHTML).join('')}</div>`
+      ).join('');
+      renderResumenOdontograma();
+      actualizarResumenOdontoPaciente();
+    }
 
-      if (!presupuestos || !presupuestos.length) {
+    function seleccionarPiezaOdontograma(numero) {
+      piezaOdontoActiva = numero;
+      const info = odontograma[numero] || {};
+      document.getElementById('piezaActivaLabel').textContent = numero;
+      document.getElementById('piezaSeleccionadaTxt').textContent = numero;
+      document.getElementById('odontoEstado').value = info.estado || '';
+      document.getElementById('odontoTratamiento').value = info.tratamiento || '';
+      document.getElementById('odontoObservacion').value = info.observacion || '';
+      renderOdontograma();
+    }
 
-        cont.innerHTML = '<div class="budget-history-empty">No hay presupuestos guardados todavía.</div>';
-
+    function guardarPiezaOdontograma() {
+      if (!piezaOdontoActiva) {
+        alert('Seleccione primero una pieza dental en el odontograma.');
         return;
+      }
+      const estado = document.getElementById('odontoEstado').value || '';
+      const tratamiento = document.getElementById('odontoTratamiento').value || '';
+      const observacion = document.getElementById('odontoObservacion').value || '';
 
+      if (!estado && !tratamiento && !observacion) {
+        delete odontograma[piezaOdontoActiva];
+      } else {
+        odontograma[piezaOdontoActiva] = {
+          pieza: piezaOdontoActiva,
+          estado,
+          tratamiento,
+          observacion,
+          fechaActualizacion: new Date().toISOString()
+        };
+      }
+      renderOdontograma();
+    }
+
+    function limpiarPiezaOdontograma() {
+      if (!piezaOdontoActiva) {
+        alert('Seleccione primero una pieza dental.');
+        return;
+      }
+      if (!confirm('¿Limpiar la información de la pieza ' + piezaOdontoActiva + '?')) return;
+      delete odontograma[piezaOdontoActiva];
+      document.getElementById('odontoEstado').value = '';
+      document.getElementById('odontoTratamiento').value = '';
+      document.getElementById('odontoObservacion').value = '';
+      renderOdontograma();
+    }
+
+    function renderResumenOdontograma() {
+      const cont = document.getElementById('resumenOdontograma');
+      if (!cont) return;
+      const piezas = Object.keys(odontograma || {}).sort((a,b)=>Number(a)-Number(b));
+      document.getElementById('totalPiezasMarcadas').textContent = String(piezas.length);
+
+      if (!piezas.length) {
+        cont.innerHTML = '<div class="empty-evolution">Sin piezas registradas todavía.</div>';
+        return;
       }
 
       cont.innerHTML = `
-
-        <table class="budget-history-table">
-
-          <thead><tr><th>Fecha</th><th>Nombre</th><th>Total</th><th>Acción</th></tr></thead>
-
+        <table>
+          <thead><tr><th>Pieza</th><th>Estado</th><th>Tratamiento</th><th>Observación</th><th></th></tr></thead>
           <tbody>
-
-            ${presupuestos.map(p => {
-
-              const tot = calcularTotalPresupuesto(p);
-
+            ${piezas.map(p => {
+              const i = odontograma[p] || {};
+              const color = ODONTO_COLORES[i.estado || ''] || '#ffffff';
               return `<tr>
-
-                <td>${escapar(p.fecha || '')}</td>
-
-                <td><b>${escapar(p.titulo || 'Presupuesto')}</b><br><small>${(p.lineas || []).length} línea(s)</small></td>
-
-                <td><b>${formatoUSD(tot.total)}</b></td>
-
-                <td>
-
-                  <button type="button" class="mini-btn secondary" onclick="cargarPresupuesto('${p.id}')">Abrir</button>
-
-                  <button type="button" class="mini-btn secondary" onclick="duplicarPresupuesto('${p.id}')">Nuevo basado</button>
-
-                  <button type="button" class="mini-btn secondary" onclick="generarPDFPresupuesto('${p.id}')">PDF</button>
-
-                  <button type="button" class="mini-btn danger" onclick="eliminarPresupuesto('${p.id}')">Eliminar</button>
-
-                </td>
-
+                <td><b>${escapar(p)}</b></td>
+                <td><span class="odonto-color" style="background:${color}"></span> ${escapar(i.estado || 'Sano')}</td>
+                <td>${escapar(i.tratamiento || '—')}</td>
+                <td>${escapar(i.observacion || '—')}</td>
+                <td><button type="button" class="mini-btn secondary" onclick="seleccionarPiezaOdontograma('${p}')">Editar</button></td>
               </tr>`;
-
             }).join('')}
-
           </tbody>
-
         </table>`;
+    }
 
+    function actualizarResumenOdontoPaciente() {
+      const paciente = `${nombres?.value || ''} ${primerApellido?.value || ''} ${segundoApellido?.value || ''}`.trim() || '—';
+      const ced = cedula?.value || '—';
+      const p = document.getElementById('odontoPacienteResumen');
+      const c = document.getElementById('odontoCedulaResumen');
+      if (p) p.textContent = paciente;
+      if (c) c.textContent = ced;
+    }
+
+
+
+    function formatoUSD(valor) {
+      return '$' + Number(valor || 0).toFixed(2);
+    }
+
+    function fechaISOHoy() {
+      return new Date().toISOString().slice(0,10);
+    }
+
+    function crearPresupuestoVacio() {
+      return {
+        id: 'PRES_' + Date.now(),
+        titulo: 'Presupuesto inicial',
+        fecha: fechaISOHoy(),
+        observacion: '',
+        descuento: 0,
+        lineas: []
+      };
+    }
+
+    function cargarPresupuestoActualEnPantalla() {
+      if (!presupuestoActual || typeof presupuestoActual !== 'object') presupuestoActual = crearPresupuestoVacio();
+      if (!presupuestoActual.id) presupuestoActual.id = 'PRES_' + Date.now();
+      presupuestoActualId = presupuestoActual.id;
+      const titulo = document.getElementById('budgetTitulo');
+      const fecha = document.getElementById('budgetFecha');
+      const obs = document.getElementById('budgetObservacion');
+      const desc = document.getElementById('budgetDescuento');
+      const estado = document.getElementById('budgetEstado');
+      if (titulo) titulo.value = presupuestoActual.titulo || 'Presupuesto inicial';
+      if (fecha) fecha.value = presupuestoActual.fecha || fechaISOHoy();
+      if (obs) obs.value = presupuestoActual.observacion || '';
+      if (desc) desc.value = Number(presupuestoActual.descuento || 0);
+      if (estado) estado.textContent = presupuestos.some(p => p.id === presupuestoActual.id) ? 'Guardado / editable' : 'Nuevo';
+    }
+
+    function sincronizarPresupuestoActual() {
+      if (!presupuestoActual || typeof presupuestoActual !== 'object') presupuestoActual = crearPresupuestoVacio();
+      presupuestoActual.titulo = document.getElementById('budgetTitulo')?.value || 'Presupuesto';
+      presupuestoActual.fecha = document.getElementById('budgetFecha')?.value || fechaISOHoy();
+      presupuestoActual.observacion = document.getElementById('budgetObservacion')?.value || '';
+      presupuestoActual.descuento = Number(document.getElementById('budgetDescuento')?.value || 0);
+      if (!Array.isArray(presupuestoActual.lineas)) presupuestoActual.lineas = [];
+    }
+
+    function nuevoPresupuesto() {
+      if (presupuestoActual && Array.isArray(presupuestoActual.lineas) && presupuestoActual.lineas.length) {
+        if (!confirm('¿Crear un presupuesto nuevo? Si no ha guardado el actual, puede perder cambios.')) return;
+      }
+      presupuestoActual = crearPresupuestoVacio();
+      presupuestoActualId = presupuestoActual.id;
+      cargarPresupuestoActualEnPantalla();
+      renderPresupuestoActual();
+      renderHistorialPresupuestos();
+    }
+
+    function presupuestoDesdeOdontograma() {
+      sincronizarPresupuestoActual();
+      const existentes = {};
+      (presupuestoActual.lineas || []).forEach(l => { if (l && l.pieza) existentes[String(l.pieza)] = l; });
+
+      const piezas = Object.keys(odontograma || {}).sort((a,b)=>Number(a)-Number(b));
+      const nuevas = piezas.map(p => {
+        const o = odontograma[p] || {};
+        const anterior = existentes[p] || {};
+        const detalle = o.tratamiento || o.estado || '';
+        if (!detalle) return null;
+        return {
+          pieza: p,
+          detalle: anterior.detalle || detalle,
+          valor: Number(anterior.valor || 0),
+          observacion: anterior.observacion || o.observacion || ''
+        };
+      }).filter(Boolean);
+
+      if (!nuevas.length) {
+        alert('No hay tratamientos registrados en el odontograma para traer al presupuesto.');
+        return;
+      }
+
+      presupuestoActual.lineas = nuevas;
+      renderPresupuestoActual();
+    }
+
+    function agregarLineaPresupuesto() {
+      sincronizarPresupuestoActual();
+      presupuestoActual.lineas.push({ pieza:'', detalle:'', valor:0, observacion:'' });
+      renderPresupuestoActual();
+    }
+
+    function actualizarLineaPresupuesto(i, campo, valor) {
+      sincronizarPresupuestoActual();
+      if (!presupuestoActual.lineas[i]) return;
+      presupuestoActual.lineas[i][campo] = campo === 'valor' ? Number(valor || 0) : valor;
+      renderPresupuestoActual(false);
+    }
+
+    function eliminarLineaPresupuesto(i) {
+      sincronizarPresupuestoActual();
+      if (!confirm('¿Eliminar esta línea del presupuesto?')) return;
+      presupuestoActual.lineas.splice(i, 1);
+      renderPresupuestoActual();
+    }
+
+    function calcularTotalPresupuesto(p) {
+      const subtotal = (p.lineas || []).reduce((acc, l) => acc + Number(l.valor || 0), 0);
+      const descuento = Number(p.descuento || 0);
+      const total = Math.max(0, subtotal - descuento);
+      return { subtotal, descuento, total };
+    }
+
+    function renderPresupuestoActual(redibujarTabla = true) {
+      sincronizarPresupuestoActual();
+      const cont = document.getElementById('budgetLineasCont');
+      if (!cont) return;
+
+      if (redibujarTabla) {
+        if (!presupuestoActual.lineas || !presupuestoActual.lineas.length) {
+          cont.innerHTML = '<div class="empty-evolution">Sin líneas. Use “Traer tratamientos del odontograma” o “Agregar línea”.</div>';
+        } else {
+          cont.innerHTML = `
+            <table class="budget-lines-table">
+              <thead><tr><th>Pieza</th><th>Detalle / Tratamiento</th><th>Valor</th><th>Observación</th><th></th></tr></thead>
+              <tbody>
+                ${presupuestoActual.lineas.map((l, i) => `
+                  <tr>
+                    <td style="width:90px;"><input value="${escapar(l.pieza || '')}" onchange="actualizarLineaPresupuesto(${i}, 'pieza', this.value)"></td>
+                    <td><input value="${escapar(l.detalle || '')}" onchange="actualizarLineaPresupuesto(${i}, 'detalle', this.value)"></td>
+                    <td style="width:130px;"><div class="money-field"><span>$</span><input type="number" step="0.01" value="${Number(l.valor || 0)}" onchange="actualizarLineaPresupuesto(${i}, 'valor', this.value)"></div></td>
+                    <td><input value="${escapar(l.observacion || '')}" onchange="actualizarLineaPresupuesto(${i}, 'observacion', this.value)"></td>
+                    <td style="width:80px;"><button type="button" class="mini-btn danger" onclick="eliminarLineaPresupuesto(${i})">Eliminar</button></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>`;
+        }
+      }
+
+      const tot = calcularTotalPresupuesto(presupuestoActual);
+      const subEl = document.getElementById('budgetSubtotal');
+      const totalEl = document.getElementById('budgetTotal');
+      const letrasEl = document.getElementById('budgetTotalLetras');
+      if (subEl) subEl.textContent = formatoUSD(tot.subtotal);
+      if (totalEl) totalEl.textContent = formatoUSD(tot.total);
+      if (letrasEl) letrasEl.textContent = numeroALetrasBasico(tot.total);
+    }
+
+    function guardarPresupuestoActual() {
+      sincronizarPresupuestoActual();
+      if (!presupuestoActual.lineas || !presupuestoActual.lineas.length) {
+        alert('Agregue al menos una línea antes de guardar el presupuesto.');
+        return;
+      }
+
+      presupuestoActual.fechaGuardado = new Date().toISOString();
+      const idx = presupuestos.findIndex(p => p.id === presupuestoActual.id);
+      const copia = JSON.parse(JSON.stringify(presupuestoActual));
+
+      if (idx >= 0) {
+        presupuestos[idx] = copia;
+      } else {
+        presupuestos.push(copia);
+      }
+
+      renderHistorialPresupuestos();
+      cargarPresupuestoActualEnPantalla();
+      alert('Presupuesto guardado dentro de la historia clínica. Recuerde presionar “Guardar en Google Drive” para respaldarlo en Drive.');
+    }
+
+    function cargarPresupuesto(id) {
+      const p = presupuestos.find(x => x.id === id);
+      if (!p) return;
+      presupuestoActual = JSON.parse(JSON.stringify(p));
+      presupuestoActualId = presupuestoActual.id;
+      cargarPresupuestoActualEnPantalla();
+      renderPresupuestoActual();
+      renderHistorialPresupuestos();
+    }
+
+    function eliminarPresupuesto(id) {
+      if (!confirm('¿Eliminar este presupuesto guardado?')) return;
+      presupuestos = presupuestos.filter(p => p.id !== id);
+      if (presupuestoActual && presupuestoActual.id === id) nuevoPresupuesto();
+      renderHistorialPresupuestos();
+    }
+
+    function duplicarPresupuesto(id) {
+      const p = presupuestos.find(x => x.id === id);
+      if (!p) return;
+      presupuestoActual = JSON.parse(JSON.stringify(p));
+      presupuestoActual.id = 'PRES_' + Date.now();
+      presupuestoActual.titulo = (presupuestoActual.titulo || 'Presupuesto') + ' - copia';
+      presupuestoActual.fecha = fechaISOHoy();
+      cargarPresupuestoActualEnPantalla();
+      renderPresupuestoActual();
+      renderHistorialPresupuestos();
+    }
+
+    function renderHistorialPresupuestos() {
+      const cont = document.getElementById('historialPresupuestos');
+      if (!cont) return;
+      if (!presupuestos || !presupuestos.length) {
+        cont.innerHTML = '<div class="budget-history-empty">No hay presupuestos guardados todavía.</div>';
+        return;
+      }
+      cont.innerHTML = `
+        <table class="budget-history-table">
+          <thead><tr><th>Fecha</th><th>Nombre</th><th>Total</th><th>Acción</th></tr></thead>
+          <tbody>
+            ${presupuestos.map(p => {
+              const tot = calcularTotalPresupuesto(p);
+              return `<tr>
+                <td>${escapar(p.fecha || '')}</td>
+                <td><b>${escapar(p.titulo || 'Presupuesto')}</b><br><small>${(p.lineas || []).length} línea(s)</small></td>
+                <td><b>${formatoUSD(tot.total)}</b></td>
+                <td>
+                  <button type="button" class="mini-btn secondary" onclick="cargarPresupuesto('${p.id}')">Abrir</button>
+                  <button type="button" class="mini-btn secondary" onclick="duplicarPresupuesto('${p.id}')">Nuevo basado</button>
+                  <button type="button" class="mini-btn secondary" onclick="generarPDFPresupuesto('${p.id}')">PDF</button>
+                  <button type="button" class="mini-btn danger" onclick="eliminarPresupuesto('${p.id}')">Eliminar</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
     }
 
     function generarPDFPresupuestoActual() {
-
       sincronizarPresupuestoActual();
-
       if (!presupuestoActual.lineas || !presupuestoActual.lineas.length) {
-
         alert('No hay líneas para generar PDF.');
-
         return;
-
       }
-
       generarPDFPresupuestoDesdeObjeto(presupuestoActual);
-
     }
 
     function generarPDFPresupuesto(id) {
-
       const p = presupuestos.find(x => x.id === id);
-
       if (!p) return;
-
       generarPDFPresupuestoDesdeObjeto(p);
-
     }
 
     function generarPDFPresupuestoDesdeObjeto(p) {
-
       const paciente = `${nombres?.value || ''} ${primerApellido?.value || ''} ${segundoApellido?.value || ''}`.trim() || 'Paciente';
-
       const ced = cedula?.value || '';
-
       const tot = calcularTotalPresupuesto(p);
-
       const div = document.createElement('div');
-
       div.className = 'budget-pdf-page';
 
       div.innerHTML = `
-
         <div class="budget-pdf-header">
-
           <span class="line1">CENTRO ODONTOLÓGICO</span>
-
           <span class="line2">DRA. CECILIA GALLARDO R.</span>
-
           <div class="budget-pdf-info">
-
             📞 0999290988 &nbsp; | &nbsp; Instagram: @draceciliagallardo<br>
-
             Av. Joaquín Orrantia y Juan Tanca Marengo, Edificio Equilibrium, 5to piso Of. 505
-
           </div>
-
         </div>
-
         <div class="budget-pdf-title">Presupuesto</div>
-
         <div class="budget-pdf-paciente">
-
           <b>Paciente:</b> ${escapar(paciente)}<br>
-
           <b>Cédula:</b> ${escapar(ced)}<br>
-
           <b>Fecha:</b> ${escapar(p.fecha || fechaISOHoy())}<br>
-
           <b>Referencia:</b> ${escapar(p.titulo || 'Presupuesto')}
-
         </div>
-
         <table class="budget-pdf-table">
-
           <thead><tr><th class="piece">Pieza</th><th>Detalle</th><th class="price">Valor</th></tr></thead>
-
           <tbody>
-
             ${(p.lineas || []).map(l => `
-
               <tr>
-
                 <td class="piece">${escapar(l.pieza || '')}</td>
-
                 <td>${escapar(l.detalle || '')}${l.observacion ? '<br><small>' + escapar(l.observacion) + '</small>' : ''}</td>
-
                 <td class="price">${formatoUSD(l.valor || 0)}</td>
-
               </tr>`).join('')}
-
           </tbody>
-
         </table>
-
         <div class="budget-pdf-total">
-
           <div class="budget-total-line"><span>Subtotal</span><b>${formatoUSD(tot.subtotal)}</b></div>
-
           <div class="budget-total-line"><span>Descuento</span><b>${formatoUSD(tot.descuento)}</b></div>
-
           <div class="budget-total-line budget-total-final"><span>Total</span><span>${formatoUSD(tot.total)}</span></div>
-
           <div style="margin-top:8px;font-size:12px;font-style:italic;">${escapar(numeroALetrasBasico(tot.total))}</div>
-
         </div>
-
         ${p.observacion ? '<div class="budget-pdf-note"><b>Observación:</b><br>' + escapar(p.observacion) + '</div>' : ''}
-
         <div class="budget-pdf-footer">
-
           Gracias por confiar en nosotros.<br><br>
-
           _________________________________<br>
-
           Dra. Cecilia Gallardo R.<br>
-
           <span style="font-weight:900;color:#000;">0999290988</span>
-
         </div>
-
       `;
 
       const nombre = `PRESUPUESTO_${(ced || paciente).replace(/[^\w\-]+/g,'_')}_${(p.fecha || fechaISOHoy())}.pdf`;
-
       const opt = {
-
         margin: 0.25,
-
         filename: nombre,
-
         image: { type: 'jpeg', quality: 0.98 },
-
         html2canvas: { scale: 2 },
-
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-
       };
-
       html2pdf().set(opt).from(div).save();
-
     }
 
     function numeroALetrasBasico(valor) {
-
       const n = Number(valor || 0);
-
       return 'Son: ' + formatoUSD(n) + ' dólares de los Estados Unidos de América.';
-
     }
 
-"""
 
-hcv = hcv.replace("    function actualizarResumenPaciente() {", js + "\n    function actualizarResumenPaciente() {", 1)
+    function actualizarResumenPaciente() {
+      if(!document.getElementById('resumenPaciente')) return;
+      resumenPaciente.textContent = `${nombres?.value || ''} ${primerApellido?.value || ''} ${segundoApellido?.value || ''}`.trim() || '—';
+      resumenCedula.textContent = cedula?.value || '—';
+      resumenEdad.textContent = edad?.value || '—';
+      resumenExpediente.textContent = obtenerNombreArchivo() || '—';
+      kpiTotalConsultas.textContent = String(evoluciones.length);
+      const fechas = evoluciones.map(e=>e.fecha).filter(Boolean).sort();
+      kpiUltimaVisita.textContent = fechas.length ? formatearFecha(fechas[fechas.length-1]) : '—';
+      const proximas = evoluciones.map(e=>e.proximaCita).filter(Boolean).sort();
+      kpiProximaCita.textContent = proximas.length ? formatearFecha(proximas[0]) : '—';
+      actualizarAlertasMedicas();
+      actualizarResumenOdontoPaciente();
+    }
 
-# Title
+    function agregarAlerta(lista, condicion, texto) { if(condicion) lista.push(texto); }
+    function contieneTextoCritico(texto, palabras) {
+      texto = (texto || '').toString().toUpperCase();
+      return palabras.some(p => texto.includes(p));
+    }
+    function actualizarAlertasMedicas() {
+      const box = document.getElementById('alertasMedicas');
+      const tags = document.getElementById('alertasMedicasTags');
+      const ok = document.getElementById('alertasOk');
+      if(!box || !tags || !ok) return;
+      const alertas = [];
+      agregarAlerta(alertas, sisDiabetes?.checked, 'Diabetes');
+      agregarAlerta(alertas, sisHipertension?.checked || getRadio('tension') === 'Sí', 'Hipertensión / tensión arterial');
+      agregarAlerta(alertas, sisCardiacos?.checked, 'Problemas cardíacos');
+      agregarAlerta(alertas, sisRenales?.checked, 'Problemas renales');
+      agregarAlerta(alertas, sisHepaticos?.checked || sisHepatitis?.checked, 'Hepático / hepatitis');
+      agregarAlerta(alertas, sisAnticoagulantes?.checked || getRadio('hemorragias') === 'Sí', 'Anticoagulantes / hemorragias');
+      agregarAlerta(alertas, sisEpilepsia?.checked, 'Epilepsia');
+      agregarAlerta(alertas, sisVIH?.checked, 'VIH / Sida');
+      agregarAlerta(alertas, sisCancer?.checked, 'Cáncer');
+      agregarAlerta(alertas, sisOsteoporosis?.checked, 'Osteoporosis');
+      agregarAlerta(alertas, getRadio('alergiaMedicamentos') === 'Sí' || contieneTextoCritico(obsAlergiaMedicamentos?.value + ' ' + enfermedades?.value + ' ' + obsSistemicas?.value, ['ALERG', 'PENICILINA', 'ANESTESIA', 'LIDOCAINA']), 'Alergia a medicamentos');
+      agregarAlerta(alertas, getRadio('anestesia') === 'Sí', 'Complicaciones con anestesia');
+      agregarAlerta(alertas, getRadio('embarazo') === 'Sí', 'Embarazo');
+      agregarAlerta(alertas, getRadio('tomaMedicamento') === 'Sí' || getRadio('medicamentos') === 'Sí', 'Medicación / tratamiento médico actual');
+      const unicas = [...new Set(alertas)];
+      tags.innerHTML = unicas.map(a => `<span class="alert-tag">${escapar(a)}</span>`).join('');
+      box.style.display = unicas.length ? 'block' : 'none';
+      ok.style.display = unicas.length ? 'none' : 'block';
+    }
 
-hcv = hcv.replace("<title>HCV5 Integral - Historia Clínica con Odontograma y Google Drive</title>",
+    function actualizarListaPacientes() {
+      listaPacientes.innerHTML=''; const pacientes=[];
+      for(let i=0;i<localStorage.length;i++){ const key=localStorage.key(i); if(key.startsWith(VERSION_KEY)){ try{ pacientes.push(JSON.parse(localStorage.getItem(key))); }catch(e){} } }
+      pacientes.sort((a,b)=>(a.primerApellido||'').localeCompare(b.primerApellido||''));
+      if(!pacientes.length){ listaPacientes.innerHTML='<li>No hay pacientes guardados localmente en este navegador. La búsqueda principal se hace en Google Drive.</li>'; return; }
+      pacientes.forEach(p=>{ const li=document.createElement('li'); li.textContent=`${p.cedula} - ${p.primerApellido} ${p.segundoApellido} ${p.nombres} (${(p.evoluciones||[]).length} consultas)`; listaPacientes.appendChild(li); });
+    }
 
-                  "<title>HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>")
-
-hcv = hcv.replace("<title>Historia Clínica Odontológica con Google Drive</title>",
-
-                  "<title>HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>")
-
-out = Path("/mnt/data/index_HCV5_integral_presupuestos_completos.html")
-
-out.write_text(hcv, encoding="utf-8")
-
-print(out, out.stat().st_size)
+    document.addEventListener('input', function(e){ actualizarAlertasMedicas(); if(['cedula','primerApellido','segundoApellido','nombres','fechaNacimiento'].includes(e.target.id)){ actualizarNombreArchivo(); actualizarResumenPaciente(); } });
+    document.addEventListener('change', function(){ actualizarAlertasMedicas(); });
+    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); actualizarAlertasMedicas();
+  </script>
+</body>
+</html>
