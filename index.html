@@ -352,9 +352,12 @@
         <div class="card-title evolution-title">💰 Proformas del Paciente</div>
         <div class="card-body">
           <div class="proforma-top-actions actions-print-hide">
-            <div class="proforma-help"><b>Módulo de proforma independiente</b><br><span>La proforma conserva su odontograma, diagnósticos, tratamientos, frase editable y PDF. Al guardar, genera automáticamente número de diagnóstico y número de presupuesto dentro de la historia clínica.</span></div>
+            <div class="proforma-help"><b>Módulo de proforma independiente</b><br><span>La proforma conserva su odontograma, diagnósticos, tratamientos, frase editable y PDF. Use los botones separados para guardar diagnóstico, tratamiento propuesto y presupuesto con número propio. Luego esos registros aparecen en listas desplegables dentro de la historia clínica.</span></div>
             <button type="button" class="primary" onclick="nuevaProformaExacta()">🆕 Nueva proforma</button>
-            <button type="button" class="primary" onclick="guardarProformaExacta()">💾 Guardar proforma en historia</button>
+            <button type="button" class="primary" onclick="guardarDiagnosticoDesdeProforma()">🦷 Guardar diagnóstico</button>
+            <button type="button" class="primary" onclick="guardarTratamientoDesdeProforma()">🧾 Guardar tratamiento propuesto</button>
+            <button type="button" class="primary" onclick="guardarPresupuestoDesdeProforma()">💵 Guardar presupuesto</button>
+            <button type="button" class="secondary" onclick="guardarProformaExacta()">💾 Guardar todo</button>
             <button type="button" class="secondary" onclick="enviarPacienteAProforma()">👤 Traer datos del paciente</button>
           </div>
           <div id="historialProformasExactas" class="proforma-history"></div>
@@ -400,6 +403,9 @@
     let presupuestoActual = crearPresupuestoVacio();
     let presupuestoActualId = null;
     let proformasExactas = [];
+    let registrosDiagnosticos = [];
+    let registrosTratamientos = [];
+    let registrosPresupuestos = [];
     let proformaExactaActualId = null;
     let ultimoEstadoProformaExacta = null;
     let piezaOdontoActiva = '';
@@ -431,6 +437,9 @@
       datos.presupuestos = presupuestos;
       datos.presupuestoActual = presupuestoActual;
       datos.proformasExactas = proformasExactas;
+      datos.registrosDiagnosticos = registrosDiagnosticos;
+      datos.registrosTratamientos = registrosTratamientos;
+      datos.registrosPresupuestos = registrosPresupuestos;
       datos.proformaExactaActualId = proformaExactaActualId;
       datos.nombreArchivo=obtenerNombreArchivo();
       datos.fechaRegistro=new Date().toISOString();
@@ -457,6 +466,10 @@
       presupuestoActual = datos.presupuestoActual && typeof datos.presupuestoActual === 'object' ? datos.presupuestoActual : crearPresupuestoVacio();
       presupuestoActualId = presupuestoActual.id || null;
       proformasExactas = Array.isArray(datos.proformasExactas) ? datos.proformasExactas : [];
+      registrosDiagnosticos = Array.isArray(datos.registrosDiagnosticos) ? datos.registrosDiagnosticos : [];
+      registrosTratamientos = Array.isArray(datos.registrosTratamientos) ? datos.registrosTratamientos : [];
+      registrosPresupuestos = Array.isArray(datos.registrosPresupuestos) ? datos.registrosPresupuestos : [];
+      migrarRegistrosClinicosDesdeProformas();
       proformaExactaActualId = datos.proformaExactaActualId || (proformasExactas[0] ? proformasExactas[0].id : null);
 
       calcularEdad();
@@ -1604,6 +1617,9 @@
         proformasExactas.push(registro);
       }
       proformaExactaActualId = id;
+      if (!registrosDiagnosticos.some(r => r.numero === registro.numeroDiagnostico)) registrosDiagnosticos.push({id:'DIAG_'+Date.now(), numero:registro.numeroDiagnostico, fechaGuardado:registro.fechaGuardado, paciente:registro.paciente, detalle:registro.diagnosticoTexto || registro.resumenDiagnostico, diagnosticosDetalle:registro.diagnosticosDetalle, proformaId:id, estado:registro.estado});
+      if (!registrosTratamientos.some(r => r.numero === registro.numeroTratamiento)) registrosTratamientos.push({id:'TRAT_'+Date.now(), numero:registro.numeroTratamiento, fechaGuardado:registro.fechaGuardado, paciente:registro.paciente, detalle:registro.planTexto || registro.resumenPresupuesto, tratamientosDetalle:registro.tratamientosDetalle, proformaId:id, estado:registro.estado});
+      if (!registrosPresupuestos.some(r => r.numero === registro.numeroPresupuesto)) registrosPresupuestos.push({id:'PRES_'+Date.now(), numero:registro.numeroPresupuesto, fechaGuardado:registro.fechaGuardado, paciente:registro.paciente, total:registro.totalPresupuesto, detalle:registro.resumenPresupuesto, tratamientosDetalle:registro.tratamientosDetalle, proformaId:id, estado:registro.estado});
       renderHistorialProformasExactas();
       renderHistorialDiagnosticosPresupuestosAuto();
       actualizarSelectoresClinicosPaciente();
@@ -1667,6 +1683,169 @@
     }
 
 
+    function etiquetaFechaRegistro(fecha) {
+      try { return new Date(fecha || Date.now()).toLocaleDateString('es-EC'); } catch(e) { return '—'; }
+    }
+
+    function migrarRegistrosClinicosDesdeProformas() {
+      // Compatibilidad con historias guardadas en versiones anteriores: si ya existían proformas,
+      // crea registros visibles en los desplegables sin duplicar los que ya fueron guardados.
+      (proformasExactas || []).forEach(p => {
+        if (p.numeroDiagnostico && !registrosDiagnosticos.some(r => r.numero === p.numeroDiagnostico)) {
+          registrosDiagnosticos.push({
+            id: 'DIAG_LEG_' + p.id,
+            numero: p.numeroDiagnostico,
+            fechaGuardado: p.fechaGuardado || new Date().toISOString(),
+            paciente: p.paciente || '',
+            detalle: p.diagnosticoTexto || p.resumenDiagnostico || '',
+            diagnosticosDetalle: p.diagnosticosDetalle || p.estado?.diagnosticos || {},
+            proformaId: p.id,
+            estado: p.estado || null
+          });
+        }
+        if (p.numeroTratamiento && !registrosTratamientos.some(r => r.numero === p.numeroTratamiento)) {
+          registrosTratamientos.push({
+            id: 'TRAT_LEG_' + p.id,
+            numero: p.numeroTratamiento,
+            fechaGuardado: p.fechaGuardado || new Date().toISOString(),
+            paciente: p.paciente || '',
+            detalle: p.planTexto || p.resumenPresupuesto || '',
+            tratamientosDetalle: p.tratamientosDetalle || p.estado?.tratamientos || [],
+            proformaId: p.id,
+            estado: p.estado || null
+          });
+        }
+        if (p.numeroPresupuesto && !registrosPresupuestos.some(r => r.numero === p.numeroPresupuesto)) {
+          registrosPresupuestos.push({
+            id: 'PRES_LEG_' + p.id,
+            numero: p.numeroPresupuesto,
+            fechaGuardado: p.fechaGuardado || new Date().toISOString(),
+            paciente: p.paciente || '',
+            total: p.totalPresupuesto || totalPresupuestoEstado(p.estado),
+            detalle: p.resumenPresupuesto || '',
+            tratamientosDetalle: p.tratamientosDetalle || p.estado?.tratamientos || [],
+            proformaId: p.id,
+            estado: p.estado || null
+          });
+        }
+      });
+    }
+
+    function opcionRegistroClinico(r, tipo) {
+      const fecha = etiquetaFechaRegistro(r.fechaGuardado);
+      const texto = textoCorto(r.detalle || r.resumen || r.paciente || '', 55);
+      const pref = tipo === 'diag' ? 'Diagnóstico' : (tipo === 'trat' ? 'Tratamiento' : (tipo === 'pres' ? 'Proforma' : 'Procedimiento'));
+      return `${r.numero || r.id || 'S/N'} · ${fecha} · ${pref}${texto ? ' · ' + texto : ''}`;
+    }
+
+    function llenarSelect(id, lista, placeholder, tipo) {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const valor = sel.value;
+      if (!lista || !lista.length) {
+        sel.innerHTML = `<option value="">${placeholder}</option>`;
+        return;
+      }
+      sel.innerHTML = '<option value="">— Elija un registro guardado —</option>' + lista
+        .slice()
+        .sort((a,b)=>new Date(b.fechaGuardado || b.fecha || 0)-new Date(a.fechaGuardado || a.fecha || 0))
+        .map(r => `<option value="${escapar(r.id || r.numero)}">${escapar(opcionRegistroClinico(r, tipo))}</option>`).join('');
+      if ([...sel.options].some(o => o.value === valor)) sel.value = valor;
+    }
+
+    function actualizarSelectoresClinicosPaciente() {
+      migrarRegistrosClinicosDesdeProformas();
+      llenarSelect('selectTratamientosGuardados', registrosTratamientos, '— No hay tratamientos guardados —', 'trat');
+      llenarSelect('selectProformasGuardadas', registrosPresupuestos, '— No hay proformas guardadas —', 'pres');
+      const procedimientos = (evoluciones || []).map(e => ({
+        id: e.id || generarCodigoProcedimiento(e.fecha || new Date().toISOString()),
+        numero: e.id || generarCodigoProcedimiento(e.fecha || new Date().toISOString()),
+        fechaGuardado: e.fecha || e.fechaRegistro,
+        detalle: e.procedimiento || e.motivo || '',
+        raw: e
+      }));
+      llenarSelect('selectProcedimientosGuardados', procedimientos, '— No hay procedimientos guardados —', 'proc');
+    }
+
+    function buscarRegistroPorId(lista, id) { return (lista || []).find(r => (r.id || r.numero) === id); }
+
+    function verRegistroSeleccionado(tipo) {
+      const visor = document.getElementById('visorRegistroClinico');
+      if (!visor) return;
+      let registro = null;
+      if (tipo === 'trat') {
+        registro = buscarRegistroPorId(registrosTratamientos, document.getElementById('selectTratamientosGuardados')?.value || '');
+        if (!registro) { visor.innerHTML = 'Seleccione un tratamiento guardado.'; return; }
+        visor.innerHTML = `<b>${escapar(registro.numero || '')}</b><br><b>Tratamiento propuesto:</b><br>${detallePresupuestoHTML({planTexto: registro.detalle, tratamientosDetalle: registro.tratamientosDetalle || [], estado: registro.estado || {}})}<div style="margin-top:8px;"><button type="button" class="mini-btn secondary" onclick="abrirRegistroEnProforma('${registro.id}')">Abrir en proforma</button></div>`;
+      } else if (tipo === 'prof') {
+        registro = buscarRegistroPorId(registrosPresupuestos, document.getElementById('selectProformasGuardadas')?.value || '');
+        if (!registro) { visor.innerHTML = 'Seleccione una proforma guardada.'; return; }
+        visor.innerHTML = `<b>${escapar(registro.numero || '')}</b><br><b>Total:</b> ${formatoUSD(registro.total || 0)}<br>${detallePresupuestoHTML({planTexto: registro.detalle, tratamientosDetalle: registro.tratamientosDetalle || [], estado: registro.estado || {}})}<div style="margin-top:8px;"><button type="button" class="mini-btn secondary" onclick="abrirRegistroEnProforma('${registro.id}')">Abrir en proforma</button></div>`;
+      } else if (tipo === 'proc') {
+        const id = document.getElementById('selectProcedimientosGuardados')?.value || '';
+        const ev = (evoluciones || []).find(e => (e.id || '') === id);
+        if (!ev) { visor.innerHTML = 'Seleccione un procedimiento/evolución guardado.'; return; }
+        visor.innerHTML = `<b>${escapar(ev.id || '')}</b><br><b>Fecha:</b> ${formatearFecha(ev.fecha || '')}<br><b>Pieza:</b> ${escapar(ev.pieza || '—')}<br><b>Motivo:</b> ${escapar(ev.motivo || '—')}<br><b>Procedimiento:</b><br>${escapar(ev.procedimiento || '—')}<br><b>Medicamentos:</b><br>${escapar(ev.medicamentos || '—')}<br><b>Observaciones:</b><br>${escapar(ev.observaciones || '—')}`;
+      }
+    }
+
+    function abrirRegistroEnProforma(id) {
+      const r = buscarRegistroPorId(registrosDiagnosticos, id) || buscarRegistroPorId(registrosTratamientos, id) || buscarRegistroPorId(registrosPresupuestos, id);
+      if (!r || !r.estado) { alert('Este registro no tiene estado de proforma para reabrir.'); return; }
+      const iframe = document.getElementById('iframeProformaExacta');
+      scrollToSection('moduloProformaExacta');
+      setTimeout(()=>{ if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage({tipo:'HCV_CARGAR_PROFORMA', estado:r.estado}, '*'); }, 400);
+    }
+
+    async function guardarDiagnosticoDesdeProforma() {
+      const estado = await solicitarEstadoProformaExacta();
+      if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+      const diagnosticosObj = estado.diagnosticos && typeof estado.diagnosticos === 'object' ? estado.diagnosticos : {};
+      const detalle = estado.campos?.diagnosticoTexto || resumenDiagnosticosEstado(estado) || '';
+      if (!detalle && !Object.keys(diagnosticosObj).length) { alert('No hay diagnóstico para guardar. Registre diagnóstico u odontograma en la proforma.'); return; }
+      const numero = generarCodigoClinico('diag', estado.campos.fecha || new Date().toISOString());
+      registrosDiagnosticos.push({
+        id: 'DIAG_' + Date.now(), numero, fechaGuardado: new Date().toISOString(),
+        paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+        detalle, diagnosticosDetalle: diagnosticosObj, estado
+      });
+      actualizarSelectoresClinicosPaciente(); renderHistorialDiagnosticosPresupuestosAuto(); guardarHistoria();
+      alert('Diagnóstico guardado con número: ' + numero);
+    }
+
+    async function guardarTratamientoDesdeProforma() {
+      const estado = await solicitarEstadoProformaExacta();
+      if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+      const tratamientos = Array.isArray(estado.tratamientos) ? estado.tratamientos.filter(Boolean) : [];
+      const detalle = estado.campos?.planTexto || resumenPresupuestoEstado(estado) || '';
+      if (!detalle && !tratamientos.length) { alert('No hay tratamiento propuesto para guardar. Registre tratamientos en la proforma.'); return; }
+      const numero = generarCodigoClinico('trat', estado.campos.fecha || new Date().toISOString());
+      registrosTratamientos.push({
+        id: 'TRAT_' + Date.now(), numero, fechaGuardado: new Date().toISOString(),
+        paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+        detalle, tratamientosDetalle: tratamientos, estado
+      });
+      actualizarSelectoresClinicosPaciente(); guardarHistoria();
+      alert('Tratamiento propuesto guardado con número: ' + numero);
+    }
+
+    async function guardarPresupuestoDesdeProforma() {
+      const estado = await solicitarEstadoProformaExacta();
+      if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+      const tratamientos = Array.isArray(estado.tratamientos) ? estado.tratamientos.filter(Boolean) : [];
+      const total = totalPresupuestoEstado(estado);
+      const detalle = resumenPresupuestoEstado(estado) || estado.campos?.planTexto || '';
+      if (!tratamientos.length && !total) { alert('No hay presupuesto para guardar. Ingrese tratamientos y valores en la proforma.'); return; }
+      const numero = generarCodigoClinico('pres', estado.campos.fecha || new Date().toISOString());
+      registrosPresupuestos.push({
+        id: 'PRES_' + Date.now(), numero, fechaGuardado: new Date().toISOString(),
+        paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+        total, detalle, tratamientosDetalle: tratamientos, estado
+      });
+      actualizarSelectoresClinicosPaciente(); renderHistorialDiagnosticosPresupuestosAuto(); guardarHistoria();
+      alert('Presupuesto / proforma guardado con número: ' + numero);
+    }
+
     function fechaCodigoCorto(fechaISO) {
       const d = fechaISO ? new Date(fechaISO) : new Date();
       const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
@@ -1685,6 +1864,9 @@
         if (tipo === 'pres' && p.numeroPresupuesto) existentes.push(p.numeroPresupuesto);
         if (tipo === 'trat' && p.numeroTratamiento) existentes.push(p.numeroTratamiento);
       });
+      if (tipo === 'diag') (registrosDiagnosticos || []).forEach(r => r.numero && existentes.push(r.numero));
+      if (tipo === 'trat') (registrosTratamientos || []).forEach(r => r.numero && existentes.push(r.numero));
+      if (tipo === 'pres') (registrosPresupuestos || []).forEach(r => r.numero && existentes.push(r.numero));
       let n = 1;
       while (existentes.includes(`${String(n).padStart(2,'0')}-${fecha}${sufijo}`)) n++;
       return `${String(n).padStart(2,'0')}-${fecha}${sufijo}`;
@@ -1769,21 +1951,26 @@
 
     function renderHistorialDiagnosticosPresupuestosAuto() {
       const diagCont = document.getElementById('historialDiagnosticosAuto');
-      const presCont = document.getElementById('historialPresupuestosAuto');
-      const filtroTipo = document.getElementById('filtroTipoRegistro')?.value || 'todos';
-      const lista = filtrarProformasGuardadas(filtroTipo);
-      const mostrarDiag = filtroTipo === 'todos' || filtroTipo === 'diag';
-      const mostrarPres = filtroTipo === 'todos' || filtroTipo === 'pres';
-      if (diagCont) {
-        if (!mostrarDiag) diagCont.innerHTML = '<div class="empty-evolution">Filtro activo: solo presupuestos.</div>';
-        else if (!lista.length) diagCont.innerHTML = '<div class="empty-evolution">No hay diagnósticos guardados desde proforma para esta búsqueda.</div>';
-        else diagCont.innerHTML = `<table class="evolution-table"><thead><tr><th>Número diagnóstico</th><th>Fecha</th><th>Detalle guardado</th><th>Acciones</th></tr></thead><tbody>${lista.map(p=>`<tr><td><b>${escapar(p.numeroDiagnostico || '')}</b></td><td>${new Date(p.fechaGuardado).toLocaleDateString('es-EC')}</td><td>${detalleDiagnosticoHTML(p)}</td><td><button type="button" class="mini-btn secondary" onclick="abrirProformaExacta('${p.id}')">Llamar diagnóstico</button></td></tr>`).join('')}</tbody></table>`;
+      if (!diagCont) return;
+      migrarRegistrosClinicosDesdeProformas();
+      const diagRows = (registrosDiagnosticos || []).slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+      const tratRows = (registrosTratamientos || []).slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+      const presRows = (registrosPresupuestos || []).slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+      if (!diagRows.length && !tratRows.length && !presRows.length) {
+        diagCont.innerHTML = '<div class="empty-evolution">Todavía no hay diagnósticos, tratamientos ni presupuestos guardados desde la proforma.</div>';
+        return;
       }
-      if (presCont) {
-        if (!mostrarPres) presCont.innerHTML = '<div class="empty-evolution">Filtro activo: solo diagnósticos.</div>';
-        else if (!lista.length) presCont.innerHTML = '<div class="empty-evolution">No hay presupuestos guardados desde proforma para esta búsqueda.</div>';
-        else presCont.innerHTML = `<table class="evolution-table"><thead><tr><th>Número presupuesto</th><th>Fecha</th><th>Total</th><th>Tratamientos / presupuesto guardado</th><th>Acciones</th></tr></thead><tbody>${lista.map(p=>`<tr><td><b>${escapar(p.numeroPresupuesto || '')}</b></td><td>${new Date(p.fechaGuardado).toLocaleDateString('es-EC')}</td><td>${formatoUSD(p.totalPresupuesto || totalPresupuestoEstado(p.estado))}</td><td>${detallePresupuestoHTML(p)}</td><td><button type="button" class="mini-btn secondary" onclick="abrirProformaExacta('${p.id}')">Llamar presupuesto</button></td></tr>`).join('')}</tbody></table>`;
-      }
+      diagCont.innerHTML = `
+        <div class="grid" style="margin-bottom:10px;">
+          <div class="kpi-card"><small>Diagnósticos guardados</small><strong>${diagRows.length}</strong></div>
+          <div class="kpi-card"><small>Tratamientos guardados</small><strong>${tratRows.length}</strong></div>
+          <div class="kpi-card"><small>Proformas guardadas</small><strong>${presRows.length}</strong></div>
+        </div>
+        <table class="evolution-table"><thead><tr><th>Tipo</th><th>Número</th><th>Fecha</th><th>Resumen</th></tr></thead><tbody>
+          ${diagRows.map(r=>`<tr><td>Diagnóstico</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td>${detalleDiagnosticoHTML({diagnosticoTexto:r.detalle, diagnosticosDetalle:r.diagnosticosDetalle||{}, estado:r.estado||{}})}</td></tr>`).join('')}
+          ${tratRows.map(r=>`<tr><td>Tratamiento</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td>${detallePresupuestoHTML({planTexto:r.detalle, tratamientosDetalle:r.tratamientosDetalle||[], estado:r.estado||{}})}</td></tr>`).join('')}
+          ${presRows.map(r=>`<tr><td>Proforma</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td><b>Total:</b> ${formatoUSD(r.total||0)}<br>${detallePresupuestoHTML({planTexto:r.detalle, tratamientosDetalle:r.tratamientosDetalle||[], estado:r.estado||{}})}</td></tr>`).join('')}
+        </tbody></table>`;
     }
 
 
