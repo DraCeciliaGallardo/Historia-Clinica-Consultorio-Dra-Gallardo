@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HCV6 Historia Clínica con Módulo Independiente de Proformas</title>
+  <title>HCV6.1 Historia Clínica con Módulo Independiente de Proformas - GitHub Fix</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -809,7 +809,7 @@
         <h2>Antecedentes Odontológicos</h2><div class="grid2"><div class="field"><label>Última visita odontológica</label><div class="line"></div></div><div class="field"><label>Motivo de consulta actual</label><div class="line"></div></div><div class="field"><label>Dolor</label><div class="line"></div></div><div class="field"><label>Sensibilidad</label><div class="line"></div></div><div class="field"><label>Sangrado</label><div class="line"></div></div><div class="field"><label>Movilidad dental</label><div class="line"></div></div><div class="field full"><label>Observaciones odontológicas</label><div class="line"></div><div class="line"></div></div></div>
         <h2>Evolución Clínica</h2><table><thead><tr><th>Fecha</th><th>Pieza</th><th>Diagnóstico</th><th>Procedimiento</th><th>Observaciones</th></tr></thead><tbody><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
         <div class="signature"><div class="sign-line">Firma del paciente / representante</div><div class="sign-line">Firma del odontólogo</div></div>
-      </div><script>window.onload=function(){setTimeout(function(){window.print();},300)};<\/script></body></html>`;
+      </div><scr${''}ipt>window.onload=function(){setTimeout(function(){window.print();},300)};<\/script></body></html>`;
       const w = window.open('', '_blank');
       if(!w){ alert('El navegador bloqueó la ventana emergente. Permita pop-ups para generar el PDF en blanco.'); return; }
       w.document.open(); w.document.write(html); w.document.close();
@@ -866,7 +866,7 @@
           <div class="grid2"><div><label>Última visita odontológica</label><input></div><div><label>Motivo de consulta actual</label><input></div><div><label>Dolor</label><input></div><div><label>Sensibilidad</label><input></div><div><label>Sangrado</label><input></div><div><label>Movilidad dental</label><input></div><div class="full"><label>Observaciones odontológicas</label><textarea></textarea></div></div>
           <div class="signature"><div class="sign-line">Firma del paciente / representante</div><div class="sign-line">Firma del odontólogo</div></div>
         </div>
-        <script>
+        <scr${''}ipt>
           function limpiarTexto(t){return (t||'').toString().trim().toUpperCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');}
           function actualizarNombre(){var c=limpiarTexto(document.getElementById('cedula').value)||'CEDULA';var p=limpiarTexto(document.getElementById('primerApellido').value)||'PRIMERAPELLIDO';var s=limpiarTexto(document.getElementById('segundoApellido').value)||'SEGUNDOAPELLIDO';document.getElementById('nombreSugerido').textContent=c+'_'+p+'_'+s;document.title='Historia_Clinica_'+c+'_'+p+'_'+s;}
         <\/script>
