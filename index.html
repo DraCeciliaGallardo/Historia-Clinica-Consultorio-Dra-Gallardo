@@ -290,14 +290,24 @@
             <div class="kpi-card"><small>Próxima cita</small><strong id="kpiProximaCita">—</strong></div>
           </div>
 
+          <div style="margin-top:14px;">
+            <div class="card-title" style="border-radius:6px 6px 0 0;">Diagnósticos generados desde proforma</div>
+            <div id="historialDiagnosticosAuto"></div>
+          </div>
+
+          <div style="margin-top:14px;">
+            <div class="card-title" style="border-radius:6px 6px 0 0;">Presupuestos generados desde proforma</div>
+            <div id="historialPresupuestosAuto"></div>
+          </div>
+
+          <div class="note" style="margin:12px 0 8px;">El diagnóstico y el plan de tratamiento ya no se escriben en la historia clínica. Se generan y numeran desde el módulo de proforma, y quedan visibles automáticamente aquí.</div>
+
           <div class="grid">
             <div><label for="evFecha">Fecha de atención</label><input id="evFecha" type="date"></div>
             <div><label for="evPieza">Pieza dental</label><input id="evPieza" type="text" placeholder="Ej.: 11, 26, 46"></div>
             <div><label for="evProximaCita">Próxima cita</label><input id="evProximaCita" type="date"></div>
             <div class="full"><label for="evMotivo">Motivo de consulta</label><textarea id="evMotivo" placeholder="Motivo por el que acude el paciente..."></textarea></div>
-            <div class="full"><label for="evDiagnostico">Diagnóstico</label><textarea id="evDiagnostico" placeholder="Diagnóstico clínico..."></textarea></div>
             <div class="full"><label for="evProcedimiento">Procedimiento realizado</label><textarea id="evProcedimiento" placeholder="Detalle del procedimiento realizado..."></textarea></div>
-            <div class="full"><label for="evTratamiento">Tratamiento indicado</label><textarea id="evTratamiento" placeholder="Plan o tratamiento indicado..."></textarea></div>
             <div class="full"><label for="evMedicamentos">Medicamentos / receta</label><textarea id="evMedicamentos" placeholder="Medicamentos, dosis o indicaciones..."></textarea></div>
             <div class="full"><label for="evObservaciones">Observaciones</label><textarea id="evObservaciones" placeholder="Observaciones adicionales de la atención..."></textarea></div>
           </div>
@@ -316,75 +326,11 @@
       </section>
 
 
-      <section class="card odontograma-card">
-        <div class="card-title evolution-title">🦷 Odontograma Clínico y Plan de Tratamiento</div>
-        <div class="card-body">
-          <div class="patient-resume" style="margin-top:0;">
-            <div><b>Paciente:</b> <span id="odontoPacienteResumen">—</span></div>
-            <div><b>Cédula:</b> <span id="odontoCedulaResumen">—</span></div>
-            <div><b>Pieza seleccionada:</b> <span id="piezaSeleccionadaTxt">—</span></div>
-            <div><b>Piezas marcadas:</b> <span id="totalPiezasMarcadas">0</span></div>
-          </div>
-
-          <div class="odontograma-layout">
-            <div class="odontograma-container">
-              <div id="odontograma"></div>
-              <div class="odonto-legend">
-                <span style="background:#ffffff;color:#252344;">Sano</span>
-                <span style="background:#E53935;color:white;">Caries</span>
-                <span style="background:#B8A4D4;color:white;">Restauración</span>
-                <span style="background:#1565C0;color:white;">Corona</span>
-                <span style="background:#2E7D32;color:white;">Implante</span>
-                <span style="background:#EF6C00;color:white;">Endodoncia</span>
-                <span style="background:#616161;color:white;">Ausente</span>
-                <span style="background:#FBC02D;color:#252344;">Carilla</span>
-                <span style="background:#9C27B0;color:white;">Prótesis</span>
-              </div>
-            </div>
-
-            <div class="odonto-tools">
-              <div class="odonto-selected">Pieza: <span id="piezaActivaLabel">Seleccione una pieza</span></div>
-              <label for="odontoEstado">Estado / diagnóstico</label>
-              <select id="odontoEstado">
-                <option value="">Sano / sin novedad</option>
-                <option value="Caries">Caries</option>
-                <option value="Restauración">Restauración</option>
-                <option value="Corona">Corona</option>
-                <option value="Implante">Implante</option>
-                <option value="Endodoncia">Endodoncia</option>
-                <option value="Ausente">Ausente / falta pieza</option>
-                <option value="Carilla">Carilla</option>
-                <option value="Prótesis">Prótesis</option>
-                <option value="Extracción indicada">Extracción indicada</option>
-              </select>
-
-              <label for="odontoTratamiento" style="margin-top:10px;">Tratamiento propuesto / realizado</label>
-              <input id="odontoTratamiento" type="text" placeholder="Ej.: resina, corona, limpieza, endodoncia...">
-
-              <label for="odontoObservacion" style="margin-top:10px;">Observación</label>
-              <textarea id="odontoObservacion" placeholder="Detalle clínico, material, evolución, pendiente, etc."></textarea>
-
-              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;" class="actions-print-hide">
-                <button type="button" class="primary" onclick="guardarPiezaOdontograma()">💾 Guardar pieza</button>
-                <button type="button" class="secondary" onclick="limpiarPiezaOdontograma()">🧹 Limpiar pieza</button>
-              </div>
-
-              <div class="note">El odontograma se guarda dentro de la historia clínica del paciente en Google Drive.</div>
-            </div>
-          </div>
-
-          <div class="odonto-summary">
-            <div class="card-title" style="border-radius:6px 6px 0 0;">Resumen de diagnóstico y tratamientos por pieza</div>
-            <div id="resumenOdontograma"></div>
-          </div>
-        </div>
-      </section>
-
       <section class="card proforma-exacta-card" id="moduloProformaExacta">
         <div class="card-title evolution-title">💰 Proformas del Paciente</div>
         <div class="card-body">
           <div class="proforma-top-actions actions-print-hide">
-            <div class="proforma-help"><b>Módulo de proforma independiente</b><br><span>Es el mismo módulo funcional enviado: odontograma, diagnóstico, tratamientos, frase editable y PDF. Se guarda dentro de la historia del paciente.</span></div>
+            <div class="proforma-help"><b>Módulo de proforma independiente</b><br><span>La proforma conserva su odontograma, diagnósticos, tratamientos, frase editable y PDF. Al guardar, genera automáticamente número de diagnóstico y número de presupuesto dentro de la historia clínica.</span></div>
             <button type="button" class="primary" onclick="nuevaProformaExacta()">🆕 Nueva proforma</button>
             <button type="button" class="primary" onclick="guardarProformaExacta()">💾 Guardar proforma en historia</button>
             <button type="button" class="secondary" onclick="enviarPacienteAProforma()">👤 Traer datos del paciente</button>
@@ -440,7 +386,7 @@
     const CAMPOS_TEXTO = ['cedula','primerApellido','segundoApellido','nombres','direccion','telefono','fechaNacimiento','edad','referido','fechaPrimeraAtencion','enfermedades','motivoConsulta','obsHospitalizado','obsMedicamentos','obsTomaMedicamento','obsAlergiaMedicamentos','obsHemorragias','obsAnestesia','obsEmbarazo','obsComio','obsTension','obsFuma','sisOtrosTexto','obsSistemicas','ultimaVisitaOdontologica','motivoActual','otrosOdontoTexto','obsOdontologicas','responsable','parentescoResponsable','fechaConsentimiento','obsConsentimiento'];
     const CAMPOS_CHECK = ['sisHipertension','sisDiabetes','sisCardiacos','sisRespiratorios','sisRenales','sisHepaticos','sisTiroides','sisOsteoporosis','sisGastritis','sisEpilepsia','sisVIH','sisHepatitis','sisAnticoagulantes','sisCancer','sisOtros','dolor','malAliento','sensibilidad','movilidadDental','sangrado','dificultadMasticar','otrosOdonto'];
     const RADIO_GROUPS = ['hospitalizado','medicamentos','tomaMedicamento','alergiaMedicamentos','hemorragias','anestesia','embarazo','comio','tension','fuma'];
-    const CAMPOS_EVOLUCION = ['evFecha','evMotivo','evDiagnostico','evPieza','evProcedimiento','evTratamiento','evMedicamentos','evObservaciones','evProximaCita'];
+    const CAMPOS_EVOLUCION = ['evFecha','evMotivo','evPieza','evProcedimiento','evMedicamentos','evObservaciones','evProximaCita'];
 
     function fechaHoy() { const d = new Date(); document.getElementById('fechaActual').textContent = d.toLocaleDateString('es-EC'); }
     function limpiarTextoArchivo(texto) { return (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, ''); }
@@ -500,6 +446,7 @@
       renderPresupuestoActual();
       renderHistorialPresupuestos();
       renderHistorialProformasExactas();
+      renderHistorialDiagnosticosPresupuestosAuto();
       setTimeout(cargarProformaExactaActualEnIframe, 900);
       actualizarResumenPaciente();
       actualizarAlertasMedicas();
@@ -768,7 +715,7 @@
         <h2>Historia Médica</h2><table><thead><tr><th>#</th><th>Pregunta</th><th>Sí</th><th>No</th><th>Observaciones</th></tr></thead><tbody>${preguntasHTML}</tbody></table>
         <h2>Enfermedades Sistémicas</h2><div class="grid">${enfHTML}</div><div class="field full" style="margin-top:8px"><label>Observaciones adicionales</label><div class="line"></div><div class="line"></div></div>
         <h2>Antecedentes Odontológicos</h2><div class="grid2"><div class="field"><label>Última visita odontológica</label><div class="line"></div></div><div class="field"><label>Motivo de consulta actual</label><div class="line"></div></div><div class="field"><label>Dolor</label><div class="line"></div></div><div class="field"><label>Sensibilidad</label><div class="line"></div></div><div class="field"><label>Sangrado</label><div class="line"></div></div><div class="field"><label>Movilidad dental</label><div class="line"></div></div><div class="field full"><label>Observaciones odontológicas</label><div class="line"></div><div class="line"></div></div></div>
-        <h2>Evolución Clínica</h2><table><thead><tr><th>Fecha</th><th>Pieza</th><th>Diagnóstico</th><th>Procedimiento</th><th>Observaciones</th></tr></thead><tbody><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+        <h2>Evolución Clínica</h2><table><thead><tr><th>Fecha</th><th>Pieza</th><th>Procedimiento</th><th>Observaciones</th></tr></thead><tbody><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
         <div class="signature"><div class="sign-line">Firma del paciente / representante</div><div class="sign-line">Firma del odontólogo</div></div>
       </div><script>window.onload=function(){setTimeout(function(){window.print();},300)};<\/script></body></html>`;
       const w = window.open('', '_blank');
@@ -846,7 +793,7 @@
 
     function agregarEvolucion() {
       if(!validarMinimo()) return;
-      if(!evFecha.value || !evDiagnostico.value.trim() || !evProcedimiento.value.trim()) { alert('Para agregar una evolución, llene al menos: fecha, diagnóstico y procedimiento realizado.'); return; }
+      if(!evFecha.value || !evProcedimiento.value.trim()) { alert('Para agregar una evolución, llene al menos: fecha y procedimiento realizado.'); return; }
       const ev = datosEvolucionActual();
       if(editandoEvolucionIndex !== null) {
         evoluciones[editandoEvolucionIndex] = ev;
@@ -868,11 +815,9 @@
         .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''))[0];
       evFecha.value = new Date().toISOString().slice(0,10);
       evMotivo.value = ultima.motivo || '';
-      evDiagnostico.value = ultima.diagnostico || '';
-      evPieza.value = ultima.pieza || '';
+            evPieza.value = ultima.pieza || '';
       evProcedimiento.value = ultima.procedimiento || '';
-      evTratamiento.value = ultima.tratamiento || '';
-      evMedicamentos.value = ultima.medicamentos || '';
+            evMedicamentos.value = ultima.medicamentos || '';
       evObservaciones.value = ultima.observaciones || '';
       evProximaCita.value = '';
       editandoEvolucionIndex = null;
@@ -888,16 +833,16 @@
       if(!contenedorEvoluciones) return;
       if(!evoluciones.length) { contenedorEvoluciones.innerHTML = '<div class="empty-evolution">Todavía no hay evoluciones registradas para este paciente.</div>'; return; }
       const ordenadas = evoluciones.map((e,i)=>({...e,_idx:i})).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-      let html = '<table class="evolution-table"><thead><tr><th>Fecha</th><th>Pieza</th><th>Diagnóstico</th><th>Procedimiento</th><th>Próxima cita</th><th class="actions-print-hide">Acciones</th></tr></thead><tbody>';
-      ordenadas.forEach(ev=>{ html += `<tr><td>${formatearFecha(ev.fecha)}<br><small>${ev.id||''}</small></td><td>${escapar(ev.pieza||'—')}</td><td>${escapar(textoCorto(ev.diagnostico))}</td><td>${escapar(textoCorto(ev.procedimiento))}</td><td>${formatearFecha(ev.proximaCita)}</td><td class="actions-print-hide"><button type="button" class="secondary mini-btn" onclick="verEvolucion(${ev._idx})">👁 Ver</button><button type="button" class="secondary mini-btn" onclick="editarEvolucion(${ev._idx})">✏ Editar</button><button type="button" class="danger mini-btn" onclick="eliminarEvolucion(${ev._idx})">🗑 Eliminar</button></td></tr>`; });
+      let html = '<table class="evolution-table"><thead><tr><th>Fecha</th><th>Pieza</th><th>Procedimiento</th><th>Próxima cita</th><th class="actions-print-hide">Acciones</th></tr></thead><tbody>';
+      ordenadas.forEach(ev=>{ html += `<tr><td>${formatearFecha(ev.fecha)}<br><small>${ev.id||''}</small></td><td>${escapar(ev.pieza||'—')}</td><td>${escapar(textoCorto(ev.procedimiento))}</td><td>${formatearFecha(ev.proximaCita)}</td><td class="actions-print-hide"><button type="button" class="secondary mini-btn" onclick="verEvolucion(${ev._idx})">👁 Ver</button><button type="button" class="secondary mini-btn" onclick="editarEvolucion(${ev._idx})">✏ Editar</button><button type="button" class="danger mini-btn" onclick="eliminarEvolucion(${ev._idx})">🗑 Eliminar</button></td></tr>`; });
       html += '</tbody></table>'; contenedorEvoluciones.innerHTML = html;
     }
 
     function verEvolucion(i) {
       const ev=evoluciones[i]; if(!ev) return;
-      alert(`${ev.id}\nFecha: ${formatearFecha(ev.fecha)}\nPieza: ${ev.pieza || '—'}\n\nMotivo:\n${ev.motivo || '—'}\n\nDiagnóstico:\n${ev.diagnostico || '—'}\n\nProcedimiento:\n${ev.procedimiento || '—'}\n\nTratamiento:\n${ev.tratamiento || '—'}\n\nMedicamentos:\n${ev.medicamentos || '—'}\n\nObservaciones:\n${ev.observaciones || '—'}\n\nPróxima cita: ${formatearFecha(ev.proximaCita)}`);
+      alert(`${ev.id}\nFecha: ${formatearFecha(ev.fecha)}\nPieza: ${ev.pieza || '—'}\n\nMotivo:\n${ev.motivo || '—'}\n\nProcedimiento:\n${ev.procedimiento || '—'}\n\nMedicamentos:\n${ev.medicamentos || '—'}\n\nObservaciones:\n${ev.observaciones || '—'}\n\nPróxima cita: ${formatearFecha(ev.proximaCita)}`);
     }
-    function editarEvolucion(i) { const ev=evoluciones[i]; if(!ev) return; evFecha.value=ev.fecha||''; evMotivo.value=ev.motivo||''; evDiagnostico.value=ev.diagnostico||''; evPieza.value=ev.pieza||''; evProcedimiento.value=ev.procedimiento||''; evTratamiento.value=ev.tratamiento||''; evMedicamentos.value=ev.medicamentos||''; evObservaciones.value=ev.observaciones||''; evProximaCita.value=ev.proximaCita||''; editandoEvolucionIndex=i; window.scrollTo({top: document.querySelector('.evolution-card').offsetTop - 10, behavior:'smooth'}); }
+    function editarEvolucion(i) { const ev=evoluciones[i]; if(!ev) return; evFecha.value=ev.fecha||''; evMotivo.value=ev.motivo||'';  evPieza.value=ev.pieza||''; evProcedimiento.value=ev.procedimiento||'';  evMedicamentos.value=ev.medicamentos||''; evObservaciones.value=ev.observaciones||''; evProximaCita.value=ev.proximaCita||''; editandoEvolucionIndex=i; window.scrollTo({top: document.querySelector('.evolution-card').offsetTop - 10, behavior:'smooth'}); }
     function eliminarEvolucion(i) { if(!confirm('¿Eliminar esta evolución clínica?')) return; evoluciones.splice(i,1); renderEvoluciones(); guardarHistoria(); guardarHistoriaDrive(true); }
 
     function limpiarExamen() {
@@ -1581,15 +1526,28 @@
         fecha: estado.campos.fecha || '',
         hc: estado.campos.hc || '',
         proforma: estado.campos.proforma || '',
+        numeroDiagnostico: generarCodigoClinico('diag', estado.campos.fecha || new Date().toISOString()),
+        numeroPresupuesto: generarCodigoClinico('pres', estado.campos.fecha || new Date().toISOString()),
+        resumenDiagnostico: resumenDiagnosticosEstado(estado),
+        resumenPresupuesto: resumenPresupuestoEstado(estado),
+        totalPresupuesto: totalPresupuestoEstado(estado),
         totalTratamientos: totalTrat,
         diagnosticos: diagCount,
         estado
       };
       const idx = proformasExactas.findIndex(p => p.id === id);
-      if (idx >= 0) proformasExactas[idx] = registro; else proformasExactas.push(registro);
+      if (idx >= 0) {
+        registro.numeroDiagnostico = proformasExactas[idx].numeroDiagnostico || registro.numeroDiagnostico;
+        registro.numeroPresupuesto = proformasExactas[idx].numeroPresupuesto || registro.numeroPresupuesto;
+        proformasExactas[idx] = registro;
+      } else {
+        proformasExactas.push(registro);
+      }
       proformaExactaActualId = id;
       renderHistorialProformasExactas();
-      alert('Proforma guardada dentro de la historia clínica. Luego presione Guardar en Drive para respaldar toda la historia del paciente.');
+      renderHistorialDiagnosticosPresupuestosAuto();
+      guardarHistoria();
+      alert('Diagnóstico y presupuesto guardados dentro de la historia clínica del paciente. Se numeraron automáticamente. Luego presione Guardar en Drive para respaldar toda la historia.');
     }
 
     function nuevaProformaExacta() {
@@ -1617,6 +1575,7 @@
       proformasExactas = proformasExactas.filter(p => p.id !== id);
       if (proformaExactaActualId === id) proformaExactaActualId = proformasExactas[0]?.id || null;
       renderHistorialProformasExactas();
+      renderHistorialDiagnosticosPresupuestosAuto();
     }
 
     function cargarProformaExactaActualEnIframe() {
@@ -1634,18 +1593,90 @@
         cont.innerHTML = '<div class="empty-evolution">No hay proformas guardadas todavía para este paciente.</div>';
         return;
       }
-      cont.innerHTML = `<table><thead><tr><th>Fecha guardado</th><th>Paciente</th><th>Proforma</th><th>Contenido</th><th>Acciones</th></tr></thead><tbody>${proformasExactas.map(p => `
+      cont.innerHTML = `<table><thead><tr><th>Fecha guardado</th><th>Paciente</th><th>Diagnóstico / Presupuesto</th><th>Contenido</th><th>Acciones</th></tr></thead><tbody>${proformasExactas.map(p => `
         <tr>
           <td>${new Date(p.fechaGuardado).toLocaleString('es-EC')}</td>
           <td><b>${escapar(p.paciente || '')}</b><br><small>HC: ${escapar(p.hc || '')}</small></td>
-          <td>${escapar(p.proforma || p.id)} ${p.id === proformaExactaActualId ? '<span class="budget-badge">Abierta</span>' : ''}</td>
+          <td><b>${escapar(p.numeroDiagnostico || '')}</b><br><b>${escapar(p.numeroPresupuesto || '')}</b> ${p.id === proformaExactaActualId ? '<span class="budget-badge">Abierta</span>' : ''}</td>
           <td>${p.diagnosticos || 0} diagnóstico(s) · ${p.totalTratamientos || 0} tratamiento(s)</td>
           <td><button type="button" class="mini-btn secondary" onclick="abrirProformaExacta('${p.id}')">Abrir</button> <button type="button" class="mini-btn danger" onclick="eliminarProformaExacta('${p.id}')">Eliminar</button></td>
         </tr>`).join('')}</tbody></table>`;
     }
 
 
-    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); renderHistorialProformasExactas(); iniciarModuloProformaExacta(); actualizarAlertasMedicas();
+    function fechaCodigoCorto(fechaISO) {
+      const d = fechaISO ? new Date(fechaISO) : new Date();
+      const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = meses[d.getMonth()] || 'mes';
+      const yy = String(d.getFullYear()).slice(-2);
+      return `${dd}-${mm}-${yy}`;
+    }
+
+    function generarCodigoClinico(tipo, fechaBase) {
+      const fecha = fechaCodigoCorto(fechaBase || new Date().toISOString());
+      const sufijo = tipo === 'diag' ? 'diag' : 'pres';
+      const existentes = [];
+      (proformasExactas || []).forEach(p => {
+        if (tipo === 'diag' && p.numeroDiagnostico) existentes.push(p.numeroDiagnostico);
+        if (tipo === 'pres' && p.numeroPresupuesto) existentes.push(p.numeroPresupuesto);
+      });
+      let n = 1;
+      while (existentes.includes(`${String(n).padStart(2,'0')}-${fecha}${sufijo}`)) n++;
+      return `${String(n).padStart(2,'0')}-${fecha}${sufijo}`;
+    }
+
+    function resumenDiagnosticosEstado(estado) {
+      const diag = estado && estado.diagnosticos ? estado.diagnosticos : {};
+      const partes = [];
+      Object.keys(diag).sort((a,b)=>Number(a)-Number(b)).forEach(pieza => {
+        const item = diag[pieza];
+        if (!item) return;
+        if (typeof item === 'string') partes.push(`Pieza ${pieza}: ${item}`);
+        else partes.push(`Pieza ${pieza}: ${item.nombre || item.diagnostico || item.estado || JSON.stringify(item)}`);
+      });
+      return partes.join(' | ');
+    }
+
+    function resumenPresupuestoEstado(estado) {
+      const tratamientos = Array.isArray(estado && estado.tratamientos) ? estado.tratamientos : [];
+      const lineas = tratamientos.filter(Boolean).map(t => {
+        if (typeof t === 'string') return t;
+        const pieza = t.pieza ? `Pieza ${t.pieza}: ` : '';
+        const detalle = t.detalle || t.tratamiento || t.nombre || t.descripcion || '';
+        const valor = t.valor || t.precio || t.total;
+        return pieza + detalle + (valor ? ` (${formatoUSD(valor)})` : '');
+      });
+      return lineas.join(' | ');
+    }
+
+    function totalPresupuestoEstado(estado) {
+      const c = estado && estado.campos ? estado.campos : {};
+      const posibles = [c.total, c.totalPresupuesto, c.valorTotal, c.granTotal];
+      for (const v of posibles) {
+        const n = Number(String(v || '').replace(/[^0-9.-]/g,''));
+        if (!isNaN(n) && n) return n;
+      }
+      const tratamientos = Array.isArray(estado && estado.tratamientos) ? estado.tratamientos : [];
+      return tratamientos.reduce((acc,t)=> acc + Number((t && (t.valor || t.precio || t.total)) || 0), 0);
+    }
+
+    function renderHistorialDiagnosticosPresupuestosAuto() {
+      const diagCont = document.getElementById('historialDiagnosticosAuto');
+      const presCont = document.getElementById('historialPresupuestosAuto');
+      const lista = (proformasExactas || []).slice().sort((a,b)=> new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+      if (diagCont) {
+        if (!lista.length) diagCont.innerHTML = '<div class="empty-evolution">Todavía no hay diagnósticos guardados desde proforma.</div>';
+        else diagCont.innerHTML = `<table class="evolution-table"><thead><tr><th>Número diagnóstico</th><th>Fecha</th><th>Resumen</th><th>Acciones</th></tr></thead><tbody>${lista.map(p=>`<tr><td><b>${escapar(p.numeroDiagnostico || '')}</b></td><td>${new Date(p.fechaGuardado).toLocaleDateString('es-EC')}</td><td>${escapar(textoCorto(p.resumenDiagnostico || resumenDiagnosticosEstado(p.estado) || 'Sin detalle'))}</td><td><button type="button" class="mini-btn secondary" onclick="abrirProformaExacta('${p.id}')">Abrir proforma</button></td></tr>`).join('')}</tbody></table>`;
+      }
+      if (presCont) {
+        if (!lista.length) presCont.innerHTML = '<div class="empty-evolution">Todavía no hay presupuestos guardados desde proforma.</div>';
+        else presCont.innerHTML = `<table class="evolution-table"><thead><tr><th>Número presupuesto</th><th>Fecha</th><th>Total</th><th>Resumen</th><th>Acciones</th></tr></thead><tbody>${lista.map(p=>`<tr><td><b>${escapar(p.numeroPresupuesto || '')}</b></td><td>${new Date(p.fechaGuardado).toLocaleDateString('es-EC')}</td><td>${formatoUSD(p.totalPresupuesto || totalPresupuestoEstado(p.estado))}</td><td>${escapar(textoCorto(p.resumenPresupuesto || resumenPresupuestoEstado(p.estado) || 'Sin detalle'))}</td><td><button type="button" class="mini-btn secondary" onclick="abrirProformaExacta('${p.id}')">Abrir presupuesto</button></td></tr>`).join('')}</tbody></table>`;
+      }
+    }
+
+
+    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); renderHistorialProformasExactas(); renderHistorialDiagnosticosPresupuestosAuto(); iniciarModuloProformaExacta(); actualizarAlertasMedicas();
   </script>
 </body>
 </html>
