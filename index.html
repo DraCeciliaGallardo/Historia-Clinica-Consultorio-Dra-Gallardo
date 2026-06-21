@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>
+  <title>HCV7.2 Historia Clínica + Proforma Exacta GitHub</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -316,7 +316,7 @@
       </section>
 
 
-      <section class="card odontograma-card" id="moduloOdontograma">
+      <section class="card odontograma-card">
         <div class="card-title evolution-title">🦷 Odontograma Clínico y Plan de Tratamiento</div>
         <div class="card-body">
           <div class="patient-resume" style="margin-top:0;">
@@ -1503,10 +1503,22 @@
       return new TextDecoder('utf-8').decode(bytes);
     }
 
+
+    let proformaExactaBlobUrl = '';
+    function cargarHtmlProformaEnIframe(iframe) {
+      if (!iframe) return;
+      const html = decodificarBase64UTF8(PROFORMA_EXACTA_HTML_B64);
+      if (proformaExactaBlobUrl) {
+        try { URL.revokeObjectURL(proformaExactaBlobUrl); } catch(e) {}
+      }
+      proformaExactaBlobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+      iframe.src = proformaExactaBlobUrl;
+    }
+
     function iniciarModuloProformaExacta() {
       const iframe = document.getElementById('iframeProformaExacta');
       if (!iframe || iframe.dataset.cargado === '1') return;
-      iframe.srcdoc = decodificarBase64UTF8(PROFORMA_EXACTA_HTML_B64);
+      cargarHtmlProformaEnIframe(iframe);
       iframe.dataset.cargado = '1';
       window.addEventListener('message', recibirMensajeProformaExacta);
       setTimeout(enviarPacienteAProforma, 1000);
@@ -1585,7 +1597,7 @@
       proformaExactaActualId = 'PROF_' + Date.now();
       ultimoEstadoProformaExacta = null;
       const iframe = document.getElementById('iframeProformaExacta');
-      if (iframe) { iframe.dataset.cargado = '0'; iframe.srcdoc = decodificarBase64UTF8(PROFORMA_EXACTA_HTML_B64); iframe.dataset.cargado='1'; }
+      if (iframe) { iframe.dataset.cargado = '0'; cargarHtmlProformaEnIframe(iframe); iframe.dataset.cargado='1'; }
       setTimeout(enviarPacienteAProforma, 900);
       renderHistorialProformasExactas();
     }
