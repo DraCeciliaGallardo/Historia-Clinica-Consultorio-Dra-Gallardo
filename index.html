@@ -174,6 +174,13 @@
     .proforma-history th { background:var(--violeta-suave); color:var(--violeta-oscuro); padding:8px; text-align:left; }
     .proforma-history td { padding:8px; border-bottom:1px solid #eee; vertical-align:top; }
 
+
+    .selector-clinico-grid { display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:end; margin:10px 0; }
+    .visor-registro-clinico { margin-top:12px; border:1px solid var(--violeta-linea); background:#fff; border-radius:8px; padding:12px; min-height:54px; }
+    .visor-registro-clinico h4 { margin:0 0 8px; color:var(--violeta-oscuro); }
+    .registro-chip { display:inline-block; padding:5px 8px; border-radius:999px; background:var(--violeta-suave); color:var(--violeta-oscuro); border:1px solid var(--violeta-linea); font-weight:900; font-size:11px; margin:2px 4px 2px 0; }
+    @media (max-width: 760px){ .selector-clinico-grid { grid-template-columns:1fr; } }
+
     @media (max-width: 1100px) { .odontograma-layout { grid-template-columns: 1fr; } }
 
     @media (max-width: 1100px) { .clinic-header, .top-grid, .grid-main, .nav { grid-template-columns: 1fr; } .date-card { justify-self: stretch; } .grid, .grid-2, .checks, .kpi-grid, .patient-resume { grid-template-columns: 1fr; } .clinic-name h1 { font-size: 26px; } }
@@ -291,25 +298,31 @@
           </div>
 
           <div class="card" style="margin-top:14px;border:1px solid var(--violeta-linea);box-shadow:none;">
-            <div class="card-title" style="border-radius:6px 6px 0 0;">Buscar diagnóstico / presupuesto guardado del paciente</div>
-            <div class="card-body grid">
-              <div><label for="buscarRegistroClinico">Número o texto a buscar</label><input id="buscarRegistroClinico" type="text" placeholder="Ej.: 01-21-jun-26diag, 01-21-jun-26pres, caries, corona..." oninput="renderHistorialDiagnosticosPresupuestosAuto()"></div>
-              <div><label for="filtroTipoRegistro">Tipo</label><select id="filtroTipoRegistro" onchange="renderHistorialDiagnosticosPresupuestosAuto()"><option value="todos">Todos</option><option value="diag">Diagnósticos</option><option value="pres">Presupuestos</option></select></div>
-              <div style="align-self:end;"><button type="button" class="secondary" onclick="document.getElementById('buscarRegistroClinico').value='';document.getElementById('filtroTipoRegistro').value='todos';renderHistorialDiagnosticosPresupuestosAuto();">Limpiar búsqueda</button></div>
+            <div class="card-title" style="border-radius:6px 6px 0 0;">Registros guardados del paciente</div>
+            <div class="card-body">
+              <div class="note" style="margin-bottom:10px;">No se escribe para buscar. La doctora elige de las listas guardadas del paciente.</div>
+              <div class="selector-clinico-grid">
+                <div><label for="selectTratamientosGuardados">Tratamientos guardados</label><select id="selectTratamientosGuardados"><option value="">— No hay tratamientos guardados —</option></select></div>
+                <button type="button" class="secondary" onclick="verRegistroSeleccionado('trat')">Ver tratamiento</button>
+              </div>
+              <div class="selector-clinico-grid">
+                <div><label for="selectProformasGuardadas">Proformas / presupuestos guardados</label><select id="selectProformasGuardadas"><option value="">— No hay proformas guardadas —</option></select></div>
+                <button type="button" class="secondary" onclick="verRegistroSeleccionado('prof')">Ver proforma</button>
+              </div>
+              <div class="selector-clinico-grid">
+                <div><label for="selectProcedimientosGuardados">Procedimientos / evoluciones guardadas</label><select id="selectProcedimientosGuardados"><option value="">— No hay procedimientos guardados —</option></select></div>
+                <button type="button" class="secondary" onclick="verRegistroSeleccionado('proc')">Ver procedimiento</button>
+              </div>
+              <div id="visorRegistroClinico" class="visor-registro-clinico">Seleccione un tratamiento, proforma o procedimiento guardado para ver el detalle.</div>
             </div>
           </div>
 
           <div style="margin-top:14px;">
-            <div class="card-title" style="border-radius:6px 6px 0 0;">Diagnósticos generados desde proforma</div>
+            <div class="card-title" style="border-radius:6px 6px 0 0;">Diagnósticos, tratamientos y presupuestos guardados desde proforma</div>
             <div id="historialDiagnosticosAuto"></div>
           </div>
 
-          <div style="margin-top:14px;">
-            <div class="card-title" style="border-radius:6px 6px 0 0;">Presupuestos generados desde proforma</div>
-            <div id="historialPresupuestosAuto"></div>
-          </div>
-
-          <div class="note" style="margin:12px 0 8px;">El diagnóstico y el plan de tratamiento ya no se escriben en la historia clínica. Se generan y numeran desde el módulo de proforma, y quedan visibles automáticamente aquí.</div>
+          <div class="note" style="margin:12px 0 8px;">El diagnóstico y el plan de tratamiento ya no se escriben en la historia clínica. Se generan y numeran desde el módulo de proforma, y quedan visibles automáticamente aquí en listas desplegables.</div>
 
           <div class="grid">
             <div><label for="evFecha">Fecha de atención</label><input id="evFecha" type="date"></div>
@@ -456,6 +469,7 @@
       renderHistorialPresupuestos();
       renderHistorialProformasExactas();
       renderHistorialDiagnosticosPresupuestosAuto();
+      actualizarSelectoresClinicosPaciente();
       setTimeout(cargarProformaExactaActualEnIframe, 900);
       actualizarResumenPaciente();
       actualizarAlertasMedicas();
@@ -795,7 +809,7 @@
 
     function datosEvolucionActual() {
       const ev={}; CAMPOS_EVOLUCION.forEach(c=>ev[c.replace('ev','').charAt(0).toLowerCase()+c.replace('ev','').slice(1)] = document.getElementById(c)?.value || '');
-      ev.id = editandoEvolucionIndex !== null && evoluciones[editandoEvolucionIndex] ? evoluciones[editandoEvolucionIndex].id : 'EV-' + String(evoluciones.length + 1).padStart(6,'0');
+      ev.id = editandoEvolucionIndex !== null && evoluciones[editandoEvolucionIndex] ? evoluciones[editandoEvolucionIndex].id : generarCodigoProcedimiento(ev.fecha || new Date().toISOString());
       ev.fechaRegistro = new Date().toISOString();
       return ev;
     }
@@ -812,7 +826,7 @@
         evoluciones.push(ev);
         alert('Evolución agregada correctamente.');
       }
-      limpiarEvolucion(); renderEvoluciones(); guardarHistoria();
+      limpiarEvolucion(); renderEvoluciones(); actualizarSelectoresClinicosPaciente(); guardarHistoria();
     }
 
     function limpiarEvolucion() { CAMPOS_EVOLUCION.forEach(c=>{ if(document.getElementById(c)) document.getElementById(c).value=''; }); editandoEvolucionIndex=null; }
@@ -1568,6 +1582,7 @@
         proforma: estado.campos.proforma || '',
         numeroDiagnostico: generarCodigoClinico('diag', estado.campos.fecha || new Date().toISOString()),
         numeroPresupuesto: generarCodigoClinico('pres', estado.campos.fecha || new Date().toISOString()),
+        numeroTratamiento: generarCodigoClinico('trat', estado.campos.fecha || new Date().toISOString()),
         resumenDiagnostico: resumenDiagnosticosEstado(estado),
         resumenPresupuesto: resumenPresupuestoEstado(estado),
         totalPresupuesto: totalPresupuestoEstado(estado),
@@ -1583,6 +1598,7 @@
       if (idx >= 0) {
         registro.numeroDiagnostico = proformasExactas[idx].numeroDiagnostico || registro.numeroDiagnostico;
         registro.numeroPresupuesto = proformasExactas[idx].numeroPresupuesto || registro.numeroPresupuesto;
+        registro.numeroTratamiento = proformasExactas[idx].numeroTratamiento || registro.numeroTratamiento;
         proformasExactas[idx] = registro;
       } else {
         proformasExactas.push(registro);
@@ -1590,6 +1606,7 @@
       proformaExactaActualId = id;
       renderHistorialProformasExactas();
       renderHistorialDiagnosticosPresupuestosAuto();
+      actualizarSelectoresClinicosPaciente();
       guardarHistoria();
       alert('Diagnóstico y presupuesto guardados dentro de la historia clínica del paciente. Se numeraron automáticamente. Luego presione Guardar en Drive para respaldar toda la historia.');
     }
@@ -1620,6 +1637,7 @@
       if (proformaExactaActualId === id) proformaExactaActualId = proformasExactas[0]?.id || null;
       renderHistorialProformasExactas();
       renderHistorialDiagnosticosPresupuestosAuto();
+      actualizarSelectoresClinicosPaciente();
       guardarHistoria();
     }
 
@@ -1660,15 +1678,24 @@
 
     function generarCodigoClinico(tipo, fechaBase) {
       const fecha = fechaCodigoCorto(fechaBase || new Date().toISOString());
-      const sufijo = tipo === 'diag' ? 'diag' : 'pres';
+      const sufijo = tipo === 'diag' ? 'diag' : (tipo === 'trat' ? 'trat' : 'pres');
       const existentes = [];
       (proformasExactas || []).forEach(p => {
         if (tipo === 'diag' && p.numeroDiagnostico) existentes.push(p.numeroDiagnostico);
         if (tipo === 'pres' && p.numeroPresupuesto) existentes.push(p.numeroPresupuesto);
+        if (tipo === 'trat' && p.numeroTratamiento) existentes.push(p.numeroTratamiento);
       });
       let n = 1;
       while (existentes.includes(`${String(n).padStart(2,'0')}-${fecha}${sufijo}`)) n++;
       return `${String(n).padStart(2,'0')}-${fecha}${sufijo}`;
+    }
+
+    function generarCodigoProcedimiento(fechaBase) {
+      const fecha = fechaCodigoCorto(fechaBase || new Date().toISOString());
+      const existentes = (evoluciones || []).map(e => e.id).filter(Boolean);
+      let n = 1;
+      while (existentes.includes(`${String(n).padStart(2,'0')}-${fecha}proc`)) n++;
+      return `${String(n).padStart(2,'0')}-${fecha}proc`;
     }
 
     function resumenDiagnosticosEstado(estado) {
@@ -1760,7 +1787,7 @@
     }
 
 
-    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); renderHistorialProformasExactas(); renderHistorialDiagnosticosPresupuestosAuto(); iniciarModuloProformaExacta(); actualizarAlertasMedicas();
+    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); renderHistorialProformasExactas(); renderHistorialDiagnosticosPresupuestosAuto(); actualizarSelectoresClinicosPaciente(); iniciarModuloProformaExacta(); actualizarAlertasMedicas();
   </script>
 </body>
 </html>
