@@ -493,13 +493,16 @@
       }
     }
 
-    function guardarHistoria() {
-      if(!validarMinimo()) return;
+    function guardarHistoria(silencioso=false) {
+      if(!validarMinimo()) return false;
       calcularEdad();
       const datos=obtenerDatosFormulario();
       localStorage.setItem(VERSION_KEY + datos.cedula.trim(), JSON.stringify(datos));
-      alert('Historia clínica guardada localmente en este navegador.\n\nNombre: ' + datos.nombreArchivo);
+      if(!silencioso) alert('Historia clínica guardada localmente en este navegador.
+
+Nombre: ' + datos.nombreArchivo);
       actualizarListaPacientes();
+      return true;
     }
 
     async function buscarPaciente() {
@@ -579,6 +582,66 @@
       });
     }
 
+    function enviarDrivePOST(payload) {
+      // Guardado por POST en iframe oculto: evita el límite de tamaño del URL de GitHub/Apps Script.
+      // Requiere que el Apps Script tenga doPost(e) que reciba accion y payload.
+      return new Promise((resolve) => {
+        const iframeName = 'hcvPostFrame_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const iframe = document.createElement('iframe');
+        iframe.name = iframeName;
+        iframe.style.display = 'none';
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = APPS_SCRIPT_URL;
+        form.target = iframeName;
+        form.style.display = 'none';
+
+        const add = (name, value) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = name;
+          input.value = value;
+          form.appendChild(input);
+        };
+        add('accion', 'guardarHistoria');
+        add('payload', JSON.stringify(payload));
+
+        let listo = false;
+        const limpiar = () => {
+          setTimeout(() => {
+            if (form.parentNode) form.parentNode.removeChild(form);
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+          }, 800);
+        };
+        const timer = setTimeout(() => {
+          if (listo) return;
+          listo = true;
+          limpiar();
+          resolve({ ok:true, mensaje:'Historia enviada a Google Drive por POST. Si desea confirmar, use Buscar en Google Drive.' });
+        }, 3500);
+
+        iframe.onload = () => {
+          if (listo) return;
+          listo = true;
+          clearTimeout(timer);
+          limpiar();
+          resolve({ ok:true, mensaje:'Historia enviada a Google Drive por POST.' });
+        };
+        iframe.onerror = () => {
+          if (listo) return;
+          listo = true;
+          clearTimeout(timer);
+          limpiar();
+          resolve({ ok:false, mensaje:'No se pudo enviar a Google Drive por POST.' });
+        };
+
+        document.body.appendChild(iframe);
+        document.body.appendChild(form);
+        form.submit();
+      });
+    }
+
+
     function buscarDriveJSONP(cedulaBuscar) {
       // Búsqueda por JSONP: evita bloqueos CORS de GitHub Pages con Google Apps Script.
       // La cédula se limpia a números para evitar espacios, guiones o caracteres invisibles.
@@ -624,7 +687,9 @@
       const datos = obtenerDatosFormulario();
       setDriveStatus('Guardando historia clínica en Google Drive...', 'info');
       try {
-        const r = await enviarDrive({ accion:'guardarHistoria', ...datos });
+        const payloadDrive = { accion:'guardarHistoria', ...datos };
+        const textoPayload = JSON.stringify(payloadDrive);
+        const r = textoPayload.length > 1500 ? await enviarDrivePOST(payloadDrive) : await enviarDrive(payloadDrive);
         if(r.ok) {
           localStorage.setItem(VERSION_KEY + datos.cedula.trim(), JSON.stringify(datos));
           setDriveStatus('✓ ' + (r.mensaje || 'Historia guardada en Drive') + ' · Carpeta: ' + (r.carpetaPaciente || datos.nombreArchivo), 'ok');
@@ -1797,11 +1862,31 @@
       setTimeout(()=>{ if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage({tipo:'HCV_CARGAR_PROFORMA', estado:r.estado}, '*'); }, 400);
     }
 
+
+    function etiquetaDiagnosticoItem(item) {
+      if (!item) return '';
+      if (typeof item === 'string') {
+        const m = item.match(/"label"\s*:\s*"([^"]+)"/);
+        if (m) return m[1];
+        return item;
+      }
+      return item.label || item.nombre || item.diagnostico || item.estado || item.tratamiento || '';
+    }
+
+    function limpiarTextoDiagnostico(texto) {
+      let t = String(texto || '').trim();
+      if (!t) return '';
+      t = t.replace(/Pieza\s*(\d+)\s*:\s*\{\s*"label"\s*:\s*"([^"]+)"[^}]*\}/g, 'Pieza $1: $2');
+      t = t.replace(/\{\s*"label"\s*:\s*"([^"]+)"[^}]*\}/g, '$1');
+      t = t.replace(/,"color":"#[A-Fa-f0-9]{6}"/g, '');
+      return t;
+    }
+
     async function guardarDiagnosticoDesdeProforma() {
       const estado = await solicitarEstadoProformaExacta();
       if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
       const diagnosticosObj = estado.diagnosticos && typeof estado.diagnosticos === 'object' ? estado.diagnosticos : {};
-      const detalle = estado.campos?.diagnosticoTexto || resumenDiagnosticosEstado(estado) || '';
+      const detalle = limpiarTextoDiagnostico(resumenDiagnosticosEstado(estado) || estado.campos?.diagnosticoTexto || '');
       if (!detalle && !Object.keys(diagnosticosObj).length) { alert('No hay diagnóstico para guardar. Registre diagnóstico u odontograma en la proforma.'); return; }
       const numero = generarCodigoClinico('diag', estado.campos.fecha || new Date().toISOString());
       registrosDiagnosticos.push({
@@ -1809,8 +1894,9 @@
         paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
         detalle, diagnosticosDetalle: diagnosticosObj, estado
       });
-      actualizarSelectoresClinicosPaciente(); renderHistorialDiagnosticosPresupuestosAuto(); guardarHistoria();
-      alert('Diagnóstico guardado con número: ' + numero);
+      actualizarSelectoresClinicosPaciente(); renderHistorialDiagnosticosPresupuestosAuto(); guardarHistoria(true);
+      await guardarHistoriaDrive(true);
+      alert('Diagnóstico guardado con número: ' + numero + '\nTambién se actualizó la historia del paciente.');
     }
 
     async function guardarTratamientoDesdeProforma() {
@@ -1825,8 +1911,9 @@
         paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
         detalle, tratamientosDetalle: tratamientos, estado
       });
-      actualizarSelectoresClinicosPaciente(); guardarHistoria();
-      alert('Tratamiento propuesto guardado con número: ' + numero);
+      actualizarSelectoresClinicosPaciente(); renderHistorialDiagnosticosPresupuestosAuto(); guardarHistoria(true);
+      await guardarHistoriaDrive(true);
+      alert('Tratamiento propuesto guardado con número: ' + numero + '\nTambién se actualizó la historia del paciente.');
     }
 
     async function guardarPresupuestoDesdeProforma() {
@@ -1842,8 +1929,9 @@
         paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
         total, detalle, tratamientosDetalle: tratamientos, estado
       });
-      actualizarSelectoresClinicosPaciente(); renderHistorialDiagnosticosPresupuestosAuto(); guardarHistoria();
-      alert('Presupuesto / proforma guardado con número: ' + numero);
+      actualizarSelectoresClinicosPaciente(); renderHistorialDiagnosticosPresupuestosAuto(); guardarHistoria(true);
+      await guardarHistoriaDrive(true);
+      alert('Presupuesto / proforma guardado con número: ' + numero + '\nTambién se actualizó la historia del paciente.');
     }
 
     function fechaCodigoCorto(fechaISO) {
@@ -1887,7 +1975,7 @@
         const item = diag[pieza];
         if (!item) return;
         if (typeof item === 'string') partes.push(`Pieza ${pieza}: ${item}`);
-        else partes.push(`Pieza ${pieza}: ${item.nombre || item.diagnostico || item.estado || JSON.stringify(item)}`);
+        else partes.push(`Pieza ${pieza}: ${etiquetaDiagnosticoItem(item)}`);
       });
       return partes.join(' | ');
     }
@@ -1929,13 +2017,13 @@
 
     function detalleDiagnosticoHTML(p) {
       const partes = [];
-      if (p.diagnosticoTexto) partes.push('<div><b>Diagnóstico escrito:</b> ' + escapar(p.diagnosticoTexto) + '</div>');
+      if (p.diagnosticoTexto) partes.push('<div><b>Diagnóstico escrito:</b> ' + escapar(limpiarTextoDiagnostico(p.diagnosticoTexto)) + '</div>');
       const diag = p.diagnosticosDetalle || p.estado?.diagnosticos || {};
       const keys = Object.keys(diag).sort((a,b)=>Number(a)-Number(b));
       if (keys.length) {
         partes.push('<div style="margin-top:6px;"><b>Odontograma diagnóstico:</b><br>' + keys.map(k => {
           const d = diag[k] || {};
-          const label = typeof d === 'string' ? d : (d.label || d.nombre || d.diagnostico || d.estado || '');
+          const label = etiquetaDiagnosticoItem(d);
           return 'Pieza ' + escapar(k) + ': ' + escapar(label);
         }).join('<br>') + '</div>');
       }
