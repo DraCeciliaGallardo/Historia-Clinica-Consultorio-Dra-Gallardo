@@ -818,7 +818,219 @@ Nombre: ' + datos.nombreArchivo);
         <h2>Antecedentes Odontológicos</h2><div class="grid2"><div class="field"><label>Última visita odontológica</label><div class="line"></div></div><div class="field"><label>Motivo de consulta actual</label><div class="line"></div></div><div class="field"><label>Dolor</label><div class="line"></div></div><div class="field"><label>Sensibilidad</label><div class="line"></div></div><div class="field"><label>Sangrado</label><div class="line"></div></div><div class="field"><label>Movilidad dental</label><div class="line"></div></div><div class="field full"><label>Observaciones odontológicas</label><div class="line"></div><div class="line"></div></div></div>
         <h2>Evolución Clínica</h2><table><thead><tr><th>Fecha</th><th>Pieza</th><th>Procedimiento</th><th>Observaciones</th></tr></thead><tbody><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr><tr style="height:38px"><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
         <div class="signature"><div class="sign-line">Firma del paciente / representante</div><div class="sign-line">Firma del odontólogo</div></div>
-      </div><script>window.onload=function(){setTimeout(function(){window.print();},300)};<\/script></body></html>`;
+      </div><script>window.onload=function(){setTimeout(function(){window.print();},300)};<\/script>
+<script>
+/* HCV13 - Corrección final:
+   1) vuelve al guardado en Drive por JSONP/GET que ya funcionaba con Apps Script.
+   2) envía a Drive una versión liviana de la historia para que no se bloquee por tamaño.
+   3) limpia los diagnósticos para que no aparezca {"label":...} en la historia.
+*/
+(function(){
+  function limpiarJSONDiagnosticoTexto(txt){
+    txt = String(txt || '');
+    txt = txt.replace(/Pieza\s+(\d+)\s*:\s*\{"label"\s*:\s*"([^"]*)"\s*,\s*"color"\s*:\s*"[^"]*"\s*\}/gi, 'Pieza $1: $2');
+    txt = txt.replace(/\{"label"\s*:\s*"([^"]*)"\s*,\s*"color"\s*:\s*"[^"]*"\s*\}/gi, '$1');
+    txt = txt.replace(/\\+"/g, '"').replace(/\s+\|\s+/g, ' | ').trim();
+    return txt;
+  }
+
+  function diagnosticosLimpiosObjeto(obj){
+    const limpio = {};
+    if (!obj || typeof obj !== 'object') return limpio;
+    Object.keys(obj).forEach(k => {
+      const v = obj[k];
+      if (v && typeof v === 'object') {
+        limpio[k] = { label: v.label || v.nombre || v.texto || '', color: v.color || '' };
+      } else {
+        limpio[k] = { label: limpiarJSONDiagnosticoTexto(v), color: '' };
+      }
+    });
+    return limpio;
+  }
+
+  function estadoLivianoProforma(estado){
+    estado = estado || {};
+    return {
+      campos: estado.campos || {},
+      diagnosticos: diagnosticosLimpiosObjeto(estado.diagnosticos || {}),
+      tratamientos: Array.isArray(estado.tratamientos) ? estado.tratamientos : []
+    };
+  }
+
+  function registroLiviano(r){
+    r = r || {};
+    const copia = Object.assign({}, r);
+    copia.detalle = limpiarJSONDiagnosticoTexto(copia.detalle);
+    copia.diagnosticosDetalle = diagnosticosLimpiosObjeto(copia.diagnosticosDetalle || {});
+    copia.estado = estadoLivianoProforma(copia.estado || {});
+    return copia;
+  }
+
+  function proformaLiviana(p){
+    p = p || {};
+    const copia = Object.assign({}, p);
+    copia.diagnosticoTexto = limpiarJSONDiagnosticoTexto(copia.diagnosticoTexto);
+    copia.resumenDiagnostico = limpiarJSONDiagnosticoTexto(copia.resumenDiagnostico);
+    copia.diagnosticosDetalle = diagnosticosLimpiosObjeto(copia.diagnosticosDetalle || {});
+    copia.estado = estadoLivianoProforma(copia.estado || {});
+    return copia;
+  }
+
+  window.prepararHistoriaParaDrive = function(datos){
+    const d = JSON.parse(JSON.stringify(datos || {}));
+    d.registrosDiagnosticos = (d.registrosDiagnosticos || []).map(registroLiviano);
+    d.registrosTratamientos = (d.registrosTratamientos || []).map(registroLiviano);
+    d.registrosPresupuestos = (d.registrosPresupuestos || []).map(registroLiviano);
+    d.proformasExactas = (d.proformasExactas || []).map(proformaLiviana);
+    if (d.presupuestoActual) delete d.presupuestoActual.htmlPreview;
+    return d;
+  };
+
+  const enviarDriveJSONPOriginal = window.enviarDrive;
+  window.guardarHistoriaDrive = async function(silencioso=false){
+    if(!validarMinimo()) return false;
+    calcularEdad();
+
+    const datosCompleto = obtenerDatosFormulario();
+    const datosDrive = prepararHistoriaParaDrive(datosCompleto);
+
+    setDriveStatus('Guardando historia clínica en Google Drive...', 'info');
+
+    try {
+      const r = await enviarDriveJSONPOriginal({ accion:'guardarHistoria', ...datosDrive });
+
+      if(r && r.ok) {
+        localStorage.setItem(VERSION_KEY + datosCompleto.cedula.trim(), JSON.stringify(datosCompleto));
+        setDriveStatus('✓ ' + (r.mensaje || 'Historia guardada en Drive') + ' · Carpeta: ' + (r.carpetaPaciente || datosCompleto.nombreArchivo), 'ok');
+        actualizarListaPacientes();
+        if(!silencioso) alert('Historia clínica guardada correctamente en Google Drive.');
+        return true;
+      }
+
+      const msg = (r && r.mensaje) ? r.mensaje : 'No se pudo guardar en Drive. Puede ser que el Apps Script no esté publicado como "Cualquiera con el enlace".';
+      setDriveStatus('Error: ' + msg, 'err');
+      if(!silencioso) alert(msg);
+      return false;
+
+    } catch(err) {
+      setDriveStatus('Error de conexión con Apps Script: ' + err.message, 'err');
+      if(!silencioso) alert('No se pudo conectar con Google Drive. Revise Apps Script.');
+      return false;
+    }
+  };
+
+  window.renderHistorialDiagnosticosPresupuestosAuto = function() {
+    const diagCont = document.getElementById('historialDiagnosticosAuto');
+    if (!diagCont) return;
+    migrarRegistrosClinicosDesdeProformas();
+
+    registrosDiagnosticos = (registrosDiagnosticos || []).map(registroLiviano);
+    registrosTratamientos = (registrosTratamientos || []).map(registroLiviano);
+    registrosPresupuestos = (registrosPresupuestos || []).map(registroLiviano);
+
+    const diagRows = registrosDiagnosticos.slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+    const tratRows = registrosTratamientos.slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+    const presRows = registrosPresupuestos.slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+
+    if (!diagRows.length && !tratRows.length && !presRows.length) {
+      diagCont.innerHTML = '<div class="empty-evolution">Todavía no hay diagnósticos, tratamientos ni presupuestos guardados desde la proforma.</div>';
+      return;
+    }
+
+    diagCont.innerHTML = `
+      <div class="grid" style="margin-bottom:10px;">
+        <div class="kpi-card"><small>Diagnósticos guardados</small><strong>${diagRows.length}</strong></div>
+        <div class="kpi-card"><small>Tratamientos guardados</small><strong>${tratRows.length}</strong></div>
+        <div class="kpi-card"><small>Proformas guardadas</small><strong>${presRows.length}</strong></div>
+      </div>
+      <table class="evolution-table"><thead><tr><th>Tipo</th><th>Número</th><th>Fecha</th><th>Resumen</th></tr></thead><tbody>
+        ${diagRows.map(r=>`<tr><td>Diagnóstico</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td>${detalleDiagnosticoHTML({diagnosticoTexto:limpiarJSONDiagnosticoTexto(r.detalle), diagnosticosDetalle:r.diagnosticosDetalle||{}, estado:r.estado||{}})}</td></tr>`).join('')}
+        ${tratRows.map(r=>`<tr><td>Tratamiento</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td>${detallePresupuestoHTML({planTexto:r.detalle, tratamientosDetalle:r.tratamientosDetalle||[], estado:r.estado||{}})}</td></tr>`).join('')}
+        ${presRows.map(r=>`<tr><td>Proforma</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td><b>Total:</b> ${formatoUSD(r.total||0)}<br>${detallePresupuestoHTML({planTexto:r.detalle, tratamientosDetalle:r.tratamientosDetalle||[], estado:r.estado||{}})}</td></tr>`).join('')}
+      </tbody></table>`;
+  };
+
+  window.guardarDiagnosticoDesdeProforma = async function() {
+    const estado = await solicitarEstadoProformaExacta();
+    if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+    const diagnosticosObj = diagnosticosLimpiosObjeto(estado.diagnosticos || {});
+    const detalle = limpiarJSONDiagnosticoTexto(resumenDiagnosticosEstado(estado) || estado.campos?.diagnosticoTexto || '');
+    if (!detalle && !Object.keys(diagnosticosObj).length) { alert('No hay diagnóstico para guardar.'); return; }
+    const numero = generarCodigoClinico('diag', estado.campos.fecha || new Date().toISOString());
+    registrosDiagnosticos.push({
+      id: 'DIAG_' + Date.now(),
+      numero,
+      fechaGuardado: new Date().toISOString(),
+      paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+      detalle,
+      diagnosticosDetalle: diagnosticosObj,
+      estado: estadoLivianoProforma(estado)
+    });
+    actualizarSelectoresClinicosPaciente();
+    renderHistorialDiagnosticosPresupuestosAuto();
+    guardarHistoria(true);
+    await guardarHistoriaDrive(true);
+    alert('Diagnóstico guardado con número: ' + numero);
+  };
+
+  window.guardarTratamientoDesdeProforma = async function() {
+    const estado = await solicitarEstadoProformaExacta();
+    if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+    const tratamientos = Array.isArray(estado.tratamientos) ? estado.tratamientos.filter(Boolean) : [];
+    const detalle = limpiarJSONDiagnosticoTexto(estado.campos?.planTexto || resumenPresupuestoEstado(estado) || '');
+    if (!detalle && !tratamientos.length) { alert('No hay tratamiento propuesto para guardar.'); return; }
+    const numero = generarCodigoClinico('trat', estado.campos.fecha || new Date().toISOString());
+    registrosTratamientos.push({
+      id: 'TRAT_' + Date.now(),
+      numero,
+      fechaGuardado: new Date().toISOString(),
+      paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+      detalle,
+      tratamientosDetalle: tratamientos,
+      estado: estadoLivianoProforma(estado)
+    });
+    actualizarSelectoresClinicosPaciente();
+    renderHistorialDiagnosticosPresupuestosAuto();
+    guardarHistoria(true);
+    await guardarHistoriaDrive(true);
+    alert('Tratamiento propuesto guardado con número: ' + numero);
+  };
+
+  window.guardarPresupuestoDesdeProforma = async function() {
+    const estado = await solicitarEstadoProformaExacta();
+    if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+    const tratamientos = Array.isArray(estado.tratamientos) ? estado.tratamientos.filter(Boolean) : [];
+    const total = totalPresupuestoEstado(estado);
+    const detalle = limpiarJSONDiagnosticoTexto(resumenPresupuestoEstado(estado) || estado.campos?.planTexto || '');
+    if (!tratamientos.length && !total) { alert('No hay presupuesto para guardar.'); return; }
+    const numero = generarCodigoClinico('pres', estado.campos.fecha || new Date().toISOString());
+    registrosPresupuestos.push({
+      id: 'PRES_' + Date.now(),
+      numero,
+      fechaGuardado: new Date().toISOString(),
+      paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+      total,
+      detalle,
+      tratamientosDetalle: tratamientos,
+      estado: estadoLivianoProforma(estado)
+    });
+    actualizarSelectoresClinicosPaciente();
+    renderHistorialDiagnosticosPresupuestosAuto();
+    guardarHistoria(true);
+    await guardarHistoriaDrive(true);
+    alert('Presupuesto / proforma guardado con número: ' + numero);
+  };
+
+  setTimeout(function(){
+    try {
+      renderHistorialDiagnosticosPresupuestosAuto();
+      actualizarSelectoresClinicosPaciente();
+    } catch(e) {}
+  }, 700);
+})();
+</script>
+
+</body></html>`;
       const w = window.open('', '_blank');
       if(!w){ alert('El navegador bloqueó la ventana emergente. Permita pop-ups para generar el PDF en blanco.'); return; }
       w.document.open(); w.document.write(html); w.document.close();
@@ -879,7 +1091,219 @@ Nombre: ' + datos.nombreArchivo);
           function limpiarTexto(t){return (t||'').toString().trim().toUpperCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');}
           function actualizarNombre(){var c=limpiarTexto(document.getElementById('cedula').value)||'CEDULA';var p=limpiarTexto(document.getElementById('primerApellido').value)||'PRIMERAPELLIDO';var s=limpiarTexto(document.getElementById('segundoApellido').value)||'SEGUNDOAPELLIDO';document.getElementById('nombreSugerido').textContent=c+'_'+p+'_'+s;document.title='Historia_Clinica_'+c+'_'+p+'_'+s;}
         <\/script>
-      </body></html>`;
+      
+<script>
+/* HCV13 - Corrección final:
+   1) vuelve al guardado en Drive por JSONP/GET que ya funcionaba con Apps Script.
+   2) envía a Drive una versión liviana de la historia para que no se bloquee por tamaño.
+   3) limpia los diagnósticos para que no aparezca {"label":...} en la historia.
+*/
+(function(){
+  function limpiarJSONDiagnosticoTexto(txt){
+    txt = String(txt || '');
+    txt = txt.replace(/Pieza\s+(\d+)\s*:\s*\{"label"\s*:\s*"([^"]*)"\s*,\s*"color"\s*:\s*"[^"]*"\s*\}/gi, 'Pieza $1: $2');
+    txt = txt.replace(/\{"label"\s*:\s*"([^"]*)"\s*,\s*"color"\s*:\s*"[^"]*"\s*\}/gi, '$1');
+    txt = txt.replace(/\\+"/g, '"').replace(/\s+\|\s+/g, ' | ').trim();
+    return txt;
+  }
+
+  function diagnosticosLimpiosObjeto(obj){
+    const limpio = {};
+    if (!obj || typeof obj !== 'object') return limpio;
+    Object.keys(obj).forEach(k => {
+      const v = obj[k];
+      if (v && typeof v === 'object') {
+        limpio[k] = { label: v.label || v.nombre || v.texto || '', color: v.color || '' };
+      } else {
+        limpio[k] = { label: limpiarJSONDiagnosticoTexto(v), color: '' };
+      }
+    });
+    return limpio;
+  }
+
+  function estadoLivianoProforma(estado){
+    estado = estado || {};
+    return {
+      campos: estado.campos || {},
+      diagnosticos: diagnosticosLimpiosObjeto(estado.diagnosticos || {}),
+      tratamientos: Array.isArray(estado.tratamientos) ? estado.tratamientos : []
+    };
+  }
+
+  function registroLiviano(r){
+    r = r || {};
+    const copia = Object.assign({}, r);
+    copia.detalle = limpiarJSONDiagnosticoTexto(copia.detalle);
+    copia.diagnosticosDetalle = diagnosticosLimpiosObjeto(copia.diagnosticosDetalle || {});
+    copia.estado = estadoLivianoProforma(copia.estado || {});
+    return copia;
+  }
+
+  function proformaLiviana(p){
+    p = p || {};
+    const copia = Object.assign({}, p);
+    copia.diagnosticoTexto = limpiarJSONDiagnosticoTexto(copia.diagnosticoTexto);
+    copia.resumenDiagnostico = limpiarJSONDiagnosticoTexto(copia.resumenDiagnostico);
+    copia.diagnosticosDetalle = diagnosticosLimpiosObjeto(copia.diagnosticosDetalle || {});
+    copia.estado = estadoLivianoProforma(copia.estado || {});
+    return copia;
+  }
+
+  window.prepararHistoriaParaDrive = function(datos){
+    const d = JSON.parse(JSON.stringify(datos || {}));
+    d.registrosDiagnosticos = (d.registrosDiagnosticos || []).map(registroLiviano);
+    d.registrosTratamientos = (d.registrosTratamientos || []).map(registroLiviano);
+    d.registrosPresupuestos = (d.registrosPresupuestos || []).map(registroLiviano);
+    d.proformasExactas = (d.proformasExactas || []).map(proformaLiviana);
+    if (d.presupuestoActual) delete d.presupuestoActual.htmlPreview;
+    return d;
+  };
+
+  const enviarDriveJSONPOriginal = window.enviarDrive;
+  window.guardarHistoriaDrive = async function(silencioso=false){
+    if(!validarMinimo()) return false;
+    calcularEdad();
+
+    const datosCompleto = obtenerDatosFormulario();
+    const datosDrive = prepararHistoriaParaDrive(datosCompleto);
+
+    setDriveStatus('Guardando historia clínica en Google Drive...', 'info');
+
+    try {
+      const r = await enviarDriveJSONPOriginal({ accion:'guardarHistoria', ...datosDrive });
+
+      if(r && r.ok) {
+        localStorage.setItem(VERSION_KEY + datosCompleto.cedula.trim(), JSON.stringify(datosCompleto));
+        setDriveStatus('✓ ' + (r.mensaje || 'Historia guardada en Drive') + ' · Carpeta: ' + (r.carpetaPaciente || datosCompleto.nombreArchivo), 'ok');
+        actualizarListaPacientes();
+        if(!silencioso) alert('Historia clínica guardada correctamente en Google Drive.');
+        return true;
+      }
+
+      const msg = (r && r.mensaje) ? r.mensaje : 'No se pudo guardar en Drive. Puede ser que el Apps Script no esté publicado como "Cualquiera con el enlace".';
+      setDriveStatus('Error: ' + msg, 'err');
+      if(!silencioso) alert(msg);
+      return false;
+
+    } catch(err) {
+      setDriveStatus('Error de conexión con Apps Script: ' + err.message, 'err');
+      if(!silencioso) alert('No se pudo conectar con Google Drive. Revise Apps Script.');
+      return false;
+    }
+  };
+
+  window.renderHistorialDiagnosticosPresupuestosAuto = function() {
+    const diagCont = document.getElementById('historialDiagnosticosAuto');
+    if (!diagCont) return;
+    migrarRegistrosClinicosDesdeProformas();
+
+    registrosDiagnosticos = (registrosDiagnosticos || []).map(registroLiviano);
+    registrosTratamientos = (registrosTratamientos || []).map(registroLiviano);
+    registrosPresupuestos = (registrosPresupuestos || []).map(registroLiviano);
+
+    const diagRows = registrosDiagnosticos.slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+    const tratRows = registrosTratamientos.slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+    const presRows = registrosPresupuestos.slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+
+    if (!diagRows.length && !tratRows.length && !presRows.length) {
+      diagCont.innerHTML = '<div class="empty-evolution">Todavía no hay diagnósticos, tratamientos ni presupuestos guardados desde la proforma.</div>';
+      return;
+    }
+
+    diagCont.innerHTML = `
+      <div class="grid" style="margin-bottom:10px;">
+        <div class="kpi-card"><small>Diagnósticos guardados</small><strong>${diagRows.length}</strong></div>
+        <div class="kpi-card"><small>Tratamientos guardados</small><strong>${tratRows.length}</strong></div>
+        <div class="kpi-card"><small>Proformas guardadas</small><strong>${presRows.length}</strong></div>
+      </div>
+      <table class="evolution-table"><thead><tr><th>Tipo</th><th>Número</th><th>Fecha</th><th>Resumen</th></tr></thead><tbody>
+        ${diagRows.map(r=>`<tr><td>Diagnóstico</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td>${detalleDiagnosticoHTML({diagnosticoTexto:limpiarJSONDiagnosticoTexto(r.detalle), diagnosticosDetalle:r.diagnosticosDetalle||{}, estado:r.estado||{}})}</td></tr>`).join('')}
+        ${tratRows.map(r=>`<tr><td>Tratamiento</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td>${detallePresupuestoHTML({planTexto:r.detalle, tratamientosDetalle:r.tratamientosDetalle||[], estado:r.estado||{}})}</td></tr>`).join('')}
+        ${presRows.map(r=>`<tr><td>Proforma</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td><b>Total:</b> ${formatoUSD(r.total||0)}<br>${detallePresupuestoHTML({planTexto:r.detalle, tratamientosDetalle:r.tratamientosDetalle||[], estado:r.estado||{}})}</td></tr>`).join('')}
+      </tbody></table>`;
+  };
+
+  window.guardarDiagnosticoDesdeProforma = async function() {
+    const estado = await solicitarEstadoProformaExacta();
+    if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+    const diagnosticosObj = diagnosticosLimpiosObjeto(estado.diagnosticos || {});
+    const detalle = limpiarJSONDiagnosticoTexto(resumenDiagnosticosEstado(estado) || estado.campos?.diagnosticoTexto || '');
+    if (!detalle && !Object.keys(diagnosticosObj).length) { alert('No hay diagnóstico para guardar.'); return; }
+    const numero = generarCodigoClinico('diag', estado.campos.fecha || new Date().toISOString());
+    registrosDiagnosticos.push({
+      id: 'DIAG_' + Date.now(),
+      numero,
+      fechaGuardado: new Date().toISOString(),
+      paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+      detalle,
+      diagnosticosDetalle: diagnosticosObj,
+      estado: estadoLivianoProforma(estado)
+    });
+    actualizarSelectoresClinicosPaciente();
+    renderHistorialDiagnosticosPresupuestosAuto();
+    guardarHistoria(true);
+    await guardarHistoriaDrive(true);
+    alert('Diagnóstico guardado con número: ' + numero);
+  };
+
+  window.guardarTratamientoDesdeProforma = async function() {
+    const estado = await solicitarEstadoProformaExacta();
+    if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+    const tratamientos = Array.isArray(estado.tratamientos) ? estado.tratamientos.filter(Boolean) : [];
+    const detalle = limpiarJSONDiagnosticoTexto(estado.campos?.planTexto || resumenPresupuestoEstado(estado) || '');
+    if (!detalle && !tratamientos.length) { alert('No hay tratamiento propuesto para guardar.'); return; }
+    const numero = generarCodigoClinico('trat', estado.campos.fecha || new Date().toISOString());
+    registrosTratamientos.push({
+      id: 'TRAT_' + Date.now(),
+      numero,
+      fechaGuardado: new Date().toISOString(),
+      paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+      detalle,
+      tratamientosDetalle: tratamientos,
+      estado: estadoLivianoProforma(estado)
+    });
+    actualizarSelectoresClinicosPaciente();
+    renderHistorialDiagnosticosPresupuestosAuto();
+    guardarHistoria(true);
+    await guardarHistoriaDrive(true);
+    alert('Tratamiento propuesto guardado con número: ' + numero);
+  };
+
+  window.guardarPresupuestoDesdeProforma = async function() {
+    const estado = await solicitarEstadoProformaExacta();
+    if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+    const tratamientos = Array.isArray(estado.tratamientos) ? estado.tratamientos.filter(Boolean) : [];
+    const total = totalPresupuestoEstado(estado);
+    const detalle = limpiarJSONDiagnosticoTexto(resumenPresupuestoEstado(estado) || estado.campos?.planTexto || '');
+    if (!tratamientos.length && !total) { alert('No hay presupuesto para guardar.'); return; }
+    const numero = generarCodigoClinico('pres', estado.campos.fecha || new Date().toISOString());
+    registrosPresupuestos.push({
+      id: 'PRES_' + Date.now(),
+      numero,
+      fechaGuardado: new Date().toISOString(),
+      paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+      total,
+      detalle,
+      tratamientosDetalle: tratamientos,
+      estado: estadoLivianoProforma(estado)
+    });
+    actualizarSelectoresClinicosPaciente();
+    renderHistorialDiagnosticosPresupuestosAuto();
+    guardarHistoria(true);
+    await guardarHistoriaDrive(true);
+    alert('Presupuesto / proforma guardado con número: ' + numero);
+  };
+
+  setTimeout(function(){
+    try {
+      renderHistorialDiagnosticosPresupuestosAuto();
+      actualizarSelectoresClinicosPaciente();
+    } catch(e) {}
+  }, 700);
+})();
+</script>
+
+</body></html>`;
       const w = window.open('', '_blank');
       if(!w){ alert('El navegador bloqueó la ventana emergente. Permita pop-ups para abrir el formulario del paciente.'); return; }
       w.document.open(); w.document.write(html); w.document.close();
@@ -2064,5 +2488,217 @@ Nombre: ' + datos.nombreArchivo);
 
     fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); renderHistorialProformasExactas(); renderHistorialDiagnosticosPresupuestosAuto(); actualizarSelectoresClinicosPaciente(); iniciarModuloProformaExacta(); actualizarAlertasMedicas();
   </script>
+
+<script>
+/* HCV13 - Corrección final:
+   1) vuelve al guardado en Drive por JSONP/GET que ya funcionaba con Apps Script.
+   2) envía a Drive una versión liviana de la historia para que no se bloquee por tamaño.
+   3) limpia los diagnósticos para que no aparezca {"label":...} en la historia.
+*/
+(function(){
+  function limpiarJSONDiagnosticoTexto(txt){
+    txt = String(txt || '');
+    txt = txt.replace(/Pieza\s+(\d+)\s*:\s*\{"label"\s*:\s*"([^"]*)"\s*,\s*"color"\s*:\s*"[^"]*"\s*\}/gi, 'Pieza $1: $2');
+    txt = txt.replace(/\{"label"\s*:\s*"([^"]*)"\s*,\s*"color"\s*:\s*"[^"]*"\s*\}/gi, '$1');
+    txt = txt.replace(/\\+"/g, '"').replace(/\s+\|\s+/g, ' | ').trim();
+    return txt;
+  }
+
+  function diagnosticosLimpiosObjeto(obj){
+    const limpio = {};
+    if (!obj || typeof obj !== 'object') return limpio;
+    Object.keys(obj).forEach(k => {
+      const v = obj[k];
+      if (v && typeof v === 'object') {
+        limpio[k] = { label: v.label || v.nombre || v.texto || '', color: v.color || '' };
+      } else {
+        limpio[k] = { label: limpiarJSONDiagnosticoTexto(v), color: '' };
+      }
+    });
+    return limpio;
+  }
+
+  function estadoLivianoProforma(estado){
+    estado = estado || {};
+    return {
+      campos: estado.campos || {},
+      diagnosticos: diagnosticosLimpiosObjeto(estado.diagnosticos || {}),
+      tratamientos: Array.isArray(estado.tratamientos) ? estado.tratamientos : []
+    };
+  }
+
+  function registroLiviano(r){
+    r = r || {};
+    const copia = Object.assign({}, r);
+    copia.detalle = limpiarJSONDiagnosticoTexto(copia.detalle);
+    copia.diagnosticosDetalle = diagnosticosLimpiosObjeto(copia.diagnosticosDetalle || {});
+    copia.estado = estadoLivianoProforma(copia.estado || {});
+    return copia;
+  }
+
+  function proformaLiviana(p){
+    p = p || {};
+    const copia = Object.assign({}, p);
+    copia.diagnosticoTexto = limpiarJSONDiagnosticoTexto(copia.diagnosticoTexto);
+    copia.resumenDiagnostico = limpiarJSONDiagnosticoTexto(copia.resumenDiagnostico);
+    copia.diagnosticosDetalle = diagnosticosLimpiosObjeto(copia.diagnosticosDetalle || {});
+    copia.estado = estadoLivianoProforma(copia.estado || {});
+    return copia;
+  }
+
+  window.prepararHistoriaParaDrive = function(datos){
+    const d = JSON.parse(JSON.stringify(datos || {}));
+    d.registrosDiagnosticos = (d.registrosDiagnosticos || []).map(registroLiviano);
+    d.registrosTratamientos = (d.registrosTratamientos || []).map(registroLiviano);
+    d.registrosPresupuestos = (d.registrosPresupuestos || []).map(registroLiviano);
+    d.proformasExactas = (d.proformasExactas || []).map(proformaLiviana);
+    if (d.presupuestoActual) delete d.presupuestoActual.htmlPreview;
+    return d;
+  };
+
+  const enviarDriveJSONPOriginal = window.enviarDrive;
+  window.guardarHistoriaDrive = async function(silencioso=false){
+    if(!validarMinimo()) return false;
+    calcularEdad();
+
+    const datosCompleto = obtenerDatosFormulario();
+    const datosDrive = prepararHistoriaParaDrive(datosCompleto);
+
+    setDriveStatus('Guardando historia clínica en Google Drive...', 'info');
+
+    try {
+      const r = await enviarDriveJSONPOriginal({ accion:'guardarHistoria', ...datosDrive });
+
+      if(r && r.ok) {
+        localStorage.setItem(VERSION_KEY + datosCompleto.cedula.trim(), JSON.stringify(datosCompleto));
+        setDriveStatus('✓ ' + (r.mensaje || 'Historia guardada en Drive') + ' · Carpeta: ' + (r.carpetaPaciente || datosCompleto.nombreArchivo), 'ok');
+        actualizarListaPacientes();
+        if(!silencioso) alert('Historia clínica guardada correctamente en Google Drive.');
+        return true;
+      }
+
+      const msg = (r && r.mensaje) ? r.mensaje : 'No se pudo guardar en Drive. Puede ser que el Apps Script no esté publicado como "Cualquiera con el enlace".';
+      setDriveStatus('Error: ' + msg, 'err');
+      if(!silencioso) alert(msg);
+      return false;
+
+    } catch(err) {
+      setDriveStatus('Error de conexión con Apps Script: ' + err.message, 'err');
+      if(!silencioso) alert('No se pudo conectar con Google Drive. Revise Apps Script.');
+      return false;
+    }
+  };
+
+  window.renderHistorialDiagnosticosPresupuestosAuto = function() {
+    const diagCont = document.getElementById('historialDiagnosticosAuto');
+    if (!diagCont) return;
+    migrarRegistrosClinicosDesdeProformas();
+
+    registrosDiagnosticos = (registrosDiagnosticos || []).map(registroLiviano);
+    registrosTratamientos = (registrosTratamientos || []).map(registroLiviano);
+    registrosPresupuestos = (registrosPresupuestos || []).map(registroLiviano);
+
+    const diagRows = registrosDiagnosticos.slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+    const tratRows = registrosTratamientos.slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+    const presRows = registrosPresupuestos.slice().sort((a,b)=>new Date(b.fechaGuardado||0)-new Date(a.fechaGuardado||0));
+
+    if (!diagRows.length && !tratRows.length && !presRows.length) {
+      diagCont.innerHTML = '<div class="empty-evolution">Todavía no hay diagnósticos, tratamientos ni presupuestos guardados desde la proforma.</div>';
+      return;
+    }
+
+    diagCont.innerHTML = `
+      <div class="grid" style="margin-bottom:10px;">
+        <div class="kpi-card"><small>Diagnósticos guardados</small><strong>${diagRows.length}</strong></div>
+        <div class="kpi-card"><small>Tratamientos guardados</small><strong>${tratRows.length}</strong></div>
+        <div class="kpi-card"><small>Proformas guardadas</small><strong>${presRows.length}</strong></div>
+      </div>
+      <table class="evolution-table"><thead><tr><th>Tipo</th><th>Número</th><th>Fecha</th><th>Resumen</th></tr></thead><tbody>
+        ${diagRows.map(r=>`<tr><td>Diagnóstico</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td>${detalleDiagnosticoHTML({diagnosticoTexto:limpiarJSONDiagnosticoTexto(r.detalle), diagnosticosDetalle:r.diagnosticosDetalle||{}, estado:r.estado||{}})}</td></tr>`).join('')}
+        ${tratRows.map(r=>`<tr><td>Tratamiento</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td>${detallePresupuestoHTML({planTexto:r.detalle, tratamientosDetalle:r.tratamientosDetalle||[], estado:r.estado||{}})}</td></tr>`).join('')}
+        ${presRows.map(r=>`<tr><td>Proforma</td><td><b>${escapar(r.numero||'')}</b></td><td>${etiquetaFechaRegistro(r.fechaGuardado)}</td><td><b>Total:</b> ${formatoUSD(r.total||0)}<br>${detallePresupuestoHTML({planTexto:r.detalle, tratamientosDetalle:r.tratamientosDetalle||[], estado:r.estado||{}})}</td></tr>`).join('')}
+      </tbody></table>`;
+  };
+
+  window.guardarDiagnosticoDesdeProforma = async function() {
+    const estado = await solicitarEstadoProformaExacta();
+    if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+    const diagnosticosObj = diagnosticosLimpiosObjeto(estado.diagnosticos || {});
+    const detalle = limpiarJSONDiagnosticoTexto(resumenDiagnosticosEstado(estado) || estado.campos?.diagnosticoTexto || '');
+    if (!detalle && !Object.keys(diagnosticosObj).length) { alert('No hay diagnóstico para guardar.'); return; }
+    const numero = generarCodigoClinico('diag', estado.campos.fecha || new Date().toISOString());
+    registrosDiagnosticos.push({
+      id: 'DIAG_' + Date.now(),
+      numero,
+      fechaGuardado: new Date().toISOString(),
+      paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+      detalle,
+      diagnosticosDetalle: diagnosticosObj,
+      estado: estadoLivianoProforma(estado)
+    });
+    actualizarSelectoresClinicosPaciente();
+    renderHistorialDiagnosticosPresupuestosAuto();
+    guardarHistoria(true);
+    await guardarHistoriaDrive(true);
+    alert('Diagnóstico guardado con número: ' + numero);
+  };
+
+  window.guardarTratamientoDesdeProforma = async function() {
+    const estado = await solicitarEstadoProformaExacta();
+    if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+    const tratamientos = Array.isArray(estado.tratamientos) ? estado.tratamientos.filter(Boolean) : [];
+    const detalle = limpiarJSONDiagnosticoTexto(estado.campos?.planTexto || resumenPresupuestoEstado(estado) || '');
+    if (!detalle && !tratamientos.length) { alert('No hay tratamiento propuesto para guardar.'); return; }
+    const numero = generarCodigoClinico('trat', estado.campos.fecha || new Date().toISOString());
+    registrosTratamientos.push({
+      id: 'TRAT_' + Date.now(),
+      numero,
+      fechaGuardado: new Date().toISOString(),
+      paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+      detalle,
+      tratamientosDetalle: tratamientos,
+      estado: estadoLivianoProforma(estado)
+    });
+    actualizarSelectoresClinicosPaciente();
+    renderHistorialDiagnosticosPresupuestosAuto();
+    guardarHistoria(true);
+    await guardarHistoriaDrive(true);
+    alert('Tratamiento propuesto guardado con número: ' + numero);
+  };
+
+  window.guardarPresupuestoDesdeProforma = async function() {
+    const estado = await solicitarEstadoProformaExacta();
+    if (!estado || !estado.campos) { alert('No se pudo leer la proforma actual.'); return; }
+    const tratamientos = Array.isArray(estado.tratamientos) ? estado.tratamientos.filter(Boolean) : [];
+    const total = totalPresupuestoEstado(estado);
+    const detalle = limpiarJSONDiagnosticoTexto(resumenPresupuestoEstado(estado) || estado.campos?.planTexto || '');
+    if (!tratamientos.length && !total) { alert('No hay presupuesto para guardar.'); return; }
+    const numero = generarCodigoClinico('pres', estado.campos.fecha || new Date().toISOString());
+    registrosPresupuestos.push({
+      id: 'PRES_' + Date.now(),
+      numero,
+      fechaGuardado: new Date().toISOString(),
+      paciente: estado.campos.paciente || datosPacienteParaProforma().nombre,
+      total,
+      detalle,
+      tratamientosDetalle: tratamientos,
+      estado: estadoLivianoProforma(estado)
+    });
+    actualizarSelectoresClinicosPaciente();
+    renderHistorialDiagnosticosPresupuestosAuto();
+    guardarHistoria(true);
+    await guardarHistoriaDrive(true);
+    alert('Presupuesto / proforma guardado con número: ' + numero);
+  };
+
+  setTimeout(function(){
+    try {
+      renderHistorialDiagnosticosPresupuestosAuto();
+      actualizarSelectoresClinicosPaciente();
+    } catch(e) {}
+  }, 700);
+})();
+</script>
+
 </body>
 </html>
