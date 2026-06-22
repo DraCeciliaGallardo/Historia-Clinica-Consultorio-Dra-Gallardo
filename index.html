@@ -180,6 +180,15 @@
     .proforma-help { background:#faf8ff; border:1px solid var(--violeta-linea); border-radius:8px; padding:11px 12px; margin-bottom:10px; color:#5f5878; font-size:12px; line-height:1.45; }
     .historia-fed-note { background:#f3fff7; border:1px solid #cdebd9; color:#1f6a3c; border-radius:8px; padding:10px 12px; font-weight:800; font-size:12px; margin:10px 0; }
 
+
+    /* HCV7.1 - Proforma manda la historia: historia queda como resumen/receptor */
+    #moduloPresupuestos { border:2px solid var(--violeta) !important; box-shadow:0 4px 18px rgba(111,85,173,.12); }
+    #iframeProformaOriginal { width:100%; min-height:2200px; border:0; display:block; background:#faf8fd; }
+    .historia-receptor-only { background:#fffdf4; border:1px solid #eadf9a; color:#675500; border-radius:8px; padding:10px 12px; font-weight:800; font-size:12px; margin:10px 0; }
+    .evolucion-inputs-proforma { display:none !important; }
+    .odontograma-direct-tools { display:none !important; }
+    .proforma-help strong { color:var(--violeta-oscuro); }
+
     @media (max-width: 1100px) { .odontograma-layout { grid-template-columns: 1fr; } }
 
     @media (max-width: 1100px) { .clinic-header, .top-grid, .grid-main, .nav { grid-template-columns: 1fr; } .date-card { justify-self: stretch; } .grid, .grid-2, .checks, .kpi-grid, .patient-resume { grid-template-columns: 1fr; } .clinic-name h1 { font-size: 26px; } }
@@ -274,6 +283,34 @@
         </div>
       </section>
 
+      <section class="card proforma-main-card" id="moduloPresupuestos">
+        <div class="card-title evolution-title">💰 Módulo Proforma / Diagnóstico / Tratamiento / Presupuesto</div>
+        <div class="card-body">
+          <div class="proforma-help">
+            <strong>Trabaje aquí.</strong> Este es el módulo de proforma original: aquí se registra diagnóstico, tratamiento y presupuesto. La historia clínica de abajo solo recibe/resume lo guardado desde esta proforma.
+          </div>
+          <div class="proforma-actions actions-print-hide">
+            <button type="button" class="secondary" onclick="prefillProformaDesdeHistoria()">👤 Traer datos del paciente</button>
+            <button type="button" class="primary" onclick="guardarTodoDesdeProforma()">💾 Guardar todo desde Proforma</button>
+            <button type="button" class="secondary" onclick="guardarDiagnosticoDesdeProforma()">💾 Guardar solo diagnóstico</button>
+            <button type="button" class="secondary" onclick="guardarTratamientoDesdeProforma()">💾 Guardar solo tratamiento</button>
+            <button type="button" class="secondary" onclick="guardarPresupuestoDesdeProforma()">💾 Guardar solo presupuesto</button>
+          </div>
+          <div class="block-manager actions-print-hide">
+            <div class="block-manager-title">📁 Proformas guardadas del paciente</div>
+            <div class="block-row">
+              <div><label for="selectorPresupuestos">Presupuestos / proformas guardadas</label><select id="selectorPresupuestos"><option value="">No hay presupuestos guardados</option></select></div>
+              <button type="button" class="secondary" onclick="cargarPresupuestoSeleccionado()">📥 Cargar en historia</button>
+              <button type="button" class="secondary" onclick="prefillProformaDesdeHistoria()">↗️ Enviar a proforma</button>
+            </div>
+          </div>
+          <div class="proforma-frame-wrap">
+            <iframe id="iframeProformaOriginal" title="Proforma odontológica original"></iframe>
+          </div>
+        </div>
+      </section>
+
+
       <section class="card evolution-card">
         <div class="card-title evolution-title">🦷 Evolución Clínica del Paciente</div>
         <div class="card-body">
@@ -297,9 +334,9 @@
           </div>
 
 
-          <div class="historia-fed-note actions-print-hide">La evolución se alimenta desde el Módulo Proforma. Use la proforma para registrar diagnóstico, plan de tratamiento y presupuesto; luego presione “Guardar todo desde Proforma”.</div>
+          <div class="historia-receptor-only actions-print-hide">La evolución clínica se alimenta desde el Módulo Proforma de arriba. Aquí solo se muestra el historial guardado.</div>
 
-          <div class="grid">
+          <div class="grid evolucion-inputs-proforma">
             <div><label for="evFecha">Fecha de atención</label><input id="evFecha" type="date"></div>
             <div><label for="evPieza">Pieza dental</label><input id="evPieza" type="text" placeholder="Ej.: 11, 26, 46"></div>
             <div><label for="evProximaCita">Próxima cita</label><input id="evProximaCita" type="date"></div>
@@ -311,7 +348,7 @@
             <div class="full"><label for="evObservaciones">Observaciones</label><textarea id="evObservaciones" placeholder="Observaciones adicionales de la atención..."></textarea></div>
           </div>
 
-          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;" class="actions-print-hide">
+          <div style="margin-top:12px; display:none; gap:10px; flex-wrap:wrap;" class="actions-print-hide evolucion-inputs-proforma">
             <button type="button" class="primary" onclick="agregarEvolucion()">➕ Agregar Evolución</button>
             <button type="button" class="secondary" onclick="duplicarUltimaEvolucion()">⧉ Duplicar Última Evolución</button>
             <button type="button" class="secondary" onclick="limpiarEvolucion()">🧹 Limpiar Evolución</button>
@@ -335,6 +372,7 @@
             <div><b>Piezas marcadas:</b> <span id="totalPiezasMarcadas">0</span></div>
           </div>
 
+          <div class="historia-receptor-only actions-print-hide">El odontograma visible queda como resumen. El diagnóstico y tratamiento deben registrarse desde el módulo Proforma.</div>
           <div class="odontograma-layout">
             <div class="odontograma-container">
               <div id="odontograma"></div>
@@ -351,7 +389,7 @@
               </div>
             </div>
 
-            <div class="odonto-tools">
+            <div class="odonto-tools odontograma-direct-tools">
               <div class="odonto-selected">Pieza: <span id="piezaActivaLabel">Seleccione una pieza</span></div>
               <label for="odontoEstado">Estado / diagnóstico</label>
               <select id="odontoEstado">
@@ -391,33 +429,6 @@
         </div>
       </section>
 
-
-      <section class="card proforma-main-card" id="moduloPresupuestos">
-        <div class="card-title evolution-title">💰 Módulo Proforma / Diagnóstico / Tratamiento / Presupuesto</div>
-        <div class="card-body">
-          <div class="proforma-help">
-            Este es el módulo de proforma original funcionando. Desde aquí se registra el diagnóstico, plan de tratamiento y presupuesto. Al guardar, alimenta la historia clínica del paciente y queda incluido en el mismo guardado de Google Drive que ya funciona.
-          </div>
-          <div class="proforma-actions actions-print-hide">
-            <button type="button" class="secondary" onclick="prefillProformaDesdeHistoria()">👤 Traer datos del paciente</button>
-            <button type="button" class="primary" onclick="guardarTodoDesdeProforma()">💾 Guardar todo desde Proforma</button>
-            <button type="button" class="secondary" onclick="guardarDiagnosticoDesdeProforma()">💾 Guardar solo diagnóstico</button>
-            <button type="button" class="secondary" onclick="guardarTratamientoDesdeProforma()">💾 Guardar solo tratamiento</button>
-            <button type="button" class="secondary" onclick="guardarPresupuestoDesdeProforma()">💾 Guardar solo presupuesto</button>
-          </div>
-          <div class="block-manager actions-print-hide">
-            <div class="block-manager-title">📁 Proformas guardadas del paciente</div>
-            <div class="block-row">
-              <div><label for="selectorPresupuestos">Presupuestos / proformas guardadas</label><select id="selectorPresupuestos"><option value="">No hay presupuestos guardados</option></select></div>
-              <button type="button" class="secondary" onclick="cargarPresupuestoSeleccionado()">📥 Cargar en historia</button>
-              <button type="button" class="secondary" onclick="prefillProformaDesdeHistoria()">↗️ Enviar a proforma</button>
-            </div>
-          </div>
-          <div class="proforma-frame-wrap">
-            <iframe id="iframeProformaOriginal" title="Proforma odontológica original"></iframe>
-          </div>
-        </div>
-      </section>
 
       <section class="card examenes-card">
         <div class="card-title evolution-title">📁 Exámenes, RX y Tomografías del Paciente</div>
@@ -1750,22 +1761,14 @@
       if (!d) return '';
       const libre = valProforma('diagnosticoTexto');
       const items = [...d.querySelectorAll('#diagDetalle .clean-item')].map(x => x.innerText.trim()).filter(Boolean);
-      return [libre, items.length ? 'Odontograma diagnóstico:
-' + items.join('
-') : ''].filter(Boolean).join('
-
-');
+      return [libre, items.length ? 'Odontograma diagnóstico:\n' + items.join('\n') : ''].filter(Boolean).join('\n\n');
     }
 
     function resumenTratamientoProforma() {
       const libre = valProforma('planTexto');
       const filas = filasTratamientosProforma();
-      const detalle = filas.map(x => `${x.pieza ? 'Pieza ' + x.pieza + ': ' : ''}${x.tratamiento}${x.obs && x.obs !== '-' ? ' - ' + x.obs : ''}`).join('
-');
-      return [libre, detalle ? 'Tratamientos propuestos:
-' + detalle : ''].filter(Boolean).join('
-
-');
+      const detalle = filas.map(x => `${x.pieza ? 'Pieza ' + x.pieza + ': ' : ''}${x.tratamiento}${x.obs && x.obs !== '-' ? ' - ' + x.obs : ''}`).join('\n');
+      return [libre, detalle ? 'Tratamientos propuestos:\n' + detalle : ''].filter(Boolean).join('\n\n');
     }
 
     function presupuestoObjetoDesdeProforma() {
@@ -1858,6 +1861,24 @@
         presupuestos.push(JSON.parse(JSON.stringify(p)));
         presupuestoActual = JSON.parse(JSON.stringify(p));
         try { await guardarBloquePaciente('presupuestos', p); } catch(e) {}
+      }
+      // Alimenta la historia clínica con una evolución/resumen automático desde la proforma
+      if (diag || trat || p.lineas.length) {
+        const resumenProc = p.lineas.length ? p.lineas.map(l => `${l.pieza ? 'Pieza ' + l.pieza + ': ' : ''}${l.detalle}`).join('\n') : '';
+        evoluciones.push({
+          id: 'EV-PROF-' + Date.now(),
+          fecha: p.fecha || fechaISOHoy(),
+          motivo: 'Registro generado desde módulo Proforma',
+          diagnostico: diag || '',
+          pieza: p.lineas.map(l => l.pieza).filter(Boolean).join(', '),
+          procedimiento: resumenProc,
+          tratamiento: trat || '',
+          medicamentos: '',
+          observaciones: 'Proforma ' + (p.codigo || p.titulo || '') + ' guardada desde módulo Proforma.',
+          proximaCita: '',
+          fuente: 'modulo_proforma_original'
+        });
+        renderEvoluciones();
       }
       renderSelectoresBloques();
       renderHistorialPresupuestos();
