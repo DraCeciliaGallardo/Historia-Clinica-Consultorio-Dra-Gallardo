@@ -187,8 +187,9 @@
     .historia-receptor-only { background:#fffdf4; border:1px solid #eadf9a; color:#675500; border-radius:8px; padding:10px 12px; font-weight:800; font-size:12px; margin:10px 0; }
     .evolucion-inputs-proforma { display:none !important; }
     .odontograma-direct-tools { display:none !important; }
+    .odontograma-direct-tools { display:none !important; }
     .proforma-help strong { color:var(--violeta-oscuro); }
-    .proforma-save-panel { display:none; margin-top:12px; padding:12px; border:1.5px solid var(--violeta-linea); border-radius:10px; background:linear-gradient(90deg,#faf8ff,#efe9fb); }
+    .proforma-save-panel { display:block; margin-top:16px; padding:12px; border:1.5px solid var(--violeta-linea); border-radius:10px; background:linear-gradient(90deg,#faf8ff,#efe9fb); }
     .proforma-save-panel.visible { display:block; }
     .proforma-save-title { color:var(--violeta-oscuro); font-weight:900; text-transform:uppercase; font-size:12px; margin-bottom:8px; }
     .proforma-save-buttons { display:flex; gap:10px; flex-wrap:wrap; }
@@ -310,14 +311,15 @@
             <iframe id="iframeProformaOriginal" title="Proforma odontológica original"></iframe>
           </div>
           <div id="panelGuardarProforma" class="proforma-save-panel actions-print-hide">
-            <div class="proforma-save-title">💾 Guardar lo llenado en Proforma</div>
+            <div class="proforma-save-title">💾 Guardar en Drive al terminar la Proforma</div>
+            <div class="proforma-save-note" style="margin-bottom:10px; font-weight:900; color:#6f55ad;">Estos botones aparecen al final para que primero se llene la proforma. Cada bloque crea su propio código por paciente.</div>
             <div class="proforma-save-buttons">
-              <button type="button" class="primary" onclick="guardarTodoDesdeProforma()">💾 Guardar diagnóstico + tratamiento + presupuesto</button>
-              <button type="button" class="secondary" onclick="guardarDiagnosticoDesdeProforma()">Guardar diagnóstico</button>
-              <button type="button" class="secondary" onclick="guardarTratamientoDesdeProforma()">Guardar tratamiento</button>
-              <button type="button" class="secondary" onclick="guardarPresupuestoDesdeProforma()">Guardar presupuesto/proforma</button>
+              <button type="button" class="primary" onclick="guardarPresupuestoDesdeProforma()">💾 Grabar en Drive Proforma <span id="codigoSugeridoProforma" class="budget-badge"></span></button>
+              <button type="button" class="secondary" onclick="guardarDiagnosticoDesdeProforma()">🦷 Grabar en Drive Diagnóstico <span id="codigoSugeridoDiagnostico" class="budget-badge"></span></button>
+              <button type="button" class="secondary" onclick="guardarTratamientoDesdeProforma()">🛠️ Grabar en Drive Tratamiento Propuesto <span id="codigoSugeridoTratamiento" class="budget-badge"></span></button>
+              <button type="button" class="secondary" onclick="guardarTodoDesdeProforma()">✅ Grabar los 3 en Drive</button>
             </div>
-            <div class="proforma-save-note">Estos botones aparecen aquí abajo para usarlos después de llenar la proforma. Al guardar, se alimenta la historia clínica y se envía a Google Drive con el mismo guardado que ya funciona.</div>
+            <div class="proforma-save-note">Numeración sugerida: <b><span id="codigoPreviewGeneral">001-jun-22-26</span></b>. Al guardar se alimenta la historia clínica y se usa el mismo guardado de Drive que ya está funcionando.</div>
           </div>
         </div>
       </section>
@@ -384,7 +386,7 @@
             <div><b>Piezas marcadas:</b> <span id="totalPiezasMarcadas">0</span></div>
           </div>
 
-          <div class="historia-receptor-only actions-print-hide">El odontograma visible queda como resumen. El diagnóstico y tratamiento deben registrarse desde el módulo Proforma.</div>
+          <div class="historia-receptor-only actions-print-hide">Este odontograma es solo resumen automático del último diagnóstico/proforma guardado. No se edita aquí; se alimenta desde el módulo Proforma.</div>
           <div class="odontograma-layout">
             <div class="odontograma-container">
               <div id="odontograma"></div>
@@ -542,6 +544,12 @@
       presupuestos = Array.isArray(datos.presupuestos) ? datos.presupuestos : [];
       presupuestoActual = datos.presupuestoActual && typeof datos.presupuestoActual === 'object' ? datos.presupuestoActual : crearPresupuestoVacio();
       presupuestoActualId = presupuestoActual.id || null;
+      if (presupuestoActual && presupuestoActual.odontogramaSnapshot && Object.keys(presupuestoActual.odontogramaSnapshot).length) {
+        odontograma = presupuestoActual.odontogramaSnapshot;
+      } else if (presupuestos && presupuestos.length) {
+        const ultimoPres = presupuestos[presupuestos.length - 1];
+        if (ultimoPres && ultimoPres.odontogramaSnapshot && Object.keys(ultimoPres.odontogramaSnapshot).length) odontograma = ultimoPres.odontogramaSnapshot;
+      }
 
       calcularEdad();
       actualizarNombreArchivo();
@@ -1127,7 +1135,8 @@
         paciente: nombrePacienteActual(),
         cedula: cedula.value,
         origen: 'Historia clínica / evolución',
-        fechaGuardado: new Date().toISOString()
+        fechaGuardado: new Date().toISOString(),
+        odontogramaSnapshot: odontogramaDesdeProforma()
       };
       diagnosticosGuardados.push(bloque);
       renderSelectoresBloques();
@@ -1151,7 +1160,8 @@
         paciente: nombrePacienteActual(),
         cedula: cedula.value,
         origen: 'Historia clínica / evolución',
-        fechaGuardado: new Date().toISOString()
+        fechaGuardado: new Date().toISOString(),
+        odontogramaSnapshot: odontogramaDesdeProforma()
       };
       tratamientosGuardados.push(bloque);
       renderSelectoresBloques();
@@ -1228,7 +1238,7 @@
     function crearDienteHTML(numero) {
       if (numero === 'GAP') return '<div class="quadrant-gap"></div>';
       const info = odontograma[numero] || {};
-      const color = ODONTO_COLORES[info.estado || ''] || '#ffffff';
+      const color = info.color || ODONTO_COLORES[info.estado || ''] || '#ffffff';
       return `
         <div class="tooth ${piezaOdontoActiva === numero ? 'activa' : ''}" onclick="seleccionarPiezaOdontograma('${numero}')" title="Pieza ${numero}">
           <div class="tooth-shape" style="background:${color}">
@@ -1316,7 +1326,7 @@
           <tbody>
             ${piezas.map(p => {
               const i = odontograma[p] || {};
-              const color = ODONTO_COLORES[i.estado || ''] || '#ffffff';
+              const color = i.color || ODONTO_COLORES[i.estado || ''] || '#ffffff';
               return `<tr>
                 <td><b>${escapar(p)}</b></td>
                 <td><span class="odonto-color" style="background:${color}"></span> ${escapar(i.estado || 'Sano')}</td>
@@ -1753,7 +1763,8 @@
     function actualizarPanelGuardadoProforma() {
       const panel = document.getElementById('panelGuardarProforma');
       if (!panel) return;
-      panel.classList.toggle('visible', proformaTieneContenido());
+      panel.classList.add('visible');
+      actualizarCodigosSugeridosProforma();
     }
 
     function docProforma() {
@@ -1840,7 +1851,7 @@
       }));
       return {
         id: 'PRES_' + Date.now(),
-        codigo: siguienteCodigoBloque ? siguienteCodigoBloque('PP', presupuestos || []) : ('PP-' + Date.now()),
+        codigo: codigoFechaCorrelativo(presupuestos || []),
         titulo: valProforma('proforma') || 'Proforma odontológica',
         fecha: valProforma('fecha') || fechaISOHoy(),
         observacion: valProforma('explicacionPresupuesto') || valProforma('mensajeFinal') || '',
@@ -1851,17 +1862,89 @@
         fuente: 'modulo_proforma_original',
         diagnostico: resumenDiagnosticoProforma(),
         tratamiento: resumenTratamientoProforma(),
-        fechaGuardado: new Date().toISOString()
+        fechaGuardado: new Date().toISOString(),
+        odontogramaSnapshot: odontogramaDesdeProforma()
       };
+    }
+
+    function mesCortoEspanol(fechaISO) {
+      const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+      const f = fechaISO ? new Date(fechaISO + 'T00:00:00') : new Date();
+      return meses[f.getMonth()] || 'mes';
+    }
+
+    function codigoFechaCorrelativo(lista) {
+      const fecha = valProforma('fecha') || fechaISOHoy();
+      const partes = fecha.split('-');
+      const yy = (partes[0] || '').slice(-2);
+      const mm = mesCortoEspanol(fecha);
+      const dd = partes[2] || String(new Date().getDate()).padStart(2,'0');
+      const correlativo = String((Array.isArray(lista) ? lista.length : 0) + 1).padStart(3,'0');
+      return `${correlativo}-${mm}-${dd}-${yy}`;
+    }
+
+    function actualizarCodigosSugeridosProforma() {
+      const pf = document.getElementById('codigoSugeridoProforma');
+      const dx = document.getElementById('codigoSugeridoDiagnostico');
+      const tr = document.getElementById('codigoSugeridoTratamiento');
+      const gp = document.getElementById('codigoPreviewGeneral');
+      const cPF = codigoFechaCorrelativo(presupuestos || []);
+      const cDX = codigoFechaCorrelativo(diagnosticosGuardados || []);
+      const cTR = codigoFechaCorrelativo(tratamientosGuardados || []);
+      if (pf) pf.textContent = cPF;
+      if (dx) dx.textContent = cDX;
+      if (tr) tr.textContent = cTR;
+      if (gp) gp.textContent = cPF;
+    }
+
+    function odontogramaDesdeProforma() {
+      const d = docProforma();
+      const w = document.getElementById('iframeProformaOriginal')?.contentWindow;
+      const mapa = {};
+      if (w && w.diagnosticos && typeof w.diagnosticos === 'object') {
+        Object.keys(w.diagnosticos).forEach(p => {
+          const it = w.diagnosticos[p] || {};
+          mapa[String(p)] = {
+            pieza: String(p),
+            estado: it.label || 'Diagnóstico',
+            tratamiento: '',
+            observacion: 'Generado desde proforma',
+            color: it.color || '',
+            fechaActualizacion: new Date().toISOString(),
+            fuente: 'modulo_proforma_original'
+          };
+        });
+      }
+      filasTratamientosProforma().forEach(t => {
+        const p = String(t.pieza || '').trim();
+        if (!p) return;
+        mapa[p] = Object.assign(mapa[p] || { pieza:p, estado:'Tratamiento propuesto', observacion:'Generado desde proforma', fechaActualizacion:new Date().toISOString(), fuente:'modulo_proforma_original' }, {
+          tratamiento: t.tratamiento || (mapa[p] && mapa[p].tratamiento) || '',
+          observacion: t.obs || (mapa[p] && mapa[p].observacion) || 'Generado desde proforma'
+        });
+      });
+      return mapa;
+    }
+
+    function aplicarUltimoOdontogramaDesdeProforma() {
+      const mapa = odontogramaDesdeProforma();
+      if (Object.keys(mapa).length) {
+        odontograma = mapa;
+        piezaOdontoActiva = '';
+        renderOdontograma();
+      }
+      return mapa;
     }
 
     async function guardarDiagnosticoDesdeProforma() {
       if(!validarMinimo()) return;
       const texto = resumenDiagnosticoProforma();
       if(!texto) { alert('En la proforma no hay diagnóstico para guardar.'); return; }
-      const bloque = { id:'DX_'+Date.now(), codigo:siguienteCodigoBloque('DX', diagnosticosGuardados), fecha:valProforma('fecha') || fechaISOHoy(), titulo:valProforma('proforma') || 'Diagnóstico desde proforma', texto, fuente:'modulo_proforma_original' };
+      const bloque = { id:'DX_'+Date.now(), codigo:codigoFechaCorrelativo(diagnosticosGuardados || []), fecha:valProforma('fecha') || fechaISOHoy(), titulo:valProforma('proforma') || 'Diagnóstico desde proforma', texto, odontogramaSnapshot:odontogramaDesdeProforma(), fuente:'modulo_proforma_original' };
       diagnosticosGuardados.push(bloque);
       const ev = document.getElementById('evDiagnostico'); if(ev) ev.value = texto;
+      aplicarUltimoOdontogramaDesdeProforma();
+      aplicarUltimoOdontogramaDesdeProforma();
       renderSelectoresBloques();
       const ok = await guardarHistoriaDrive(true);
       alert(ok ? 'Diagnóstico guardado y enviado a la historia clínica en Drive.' : 'Diagnóstico guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
@@ -1871,7 +1954,7 @@
       if(!validarMinimo()) return;
       const texto = resumenTratamientoProforma();
       if(!texto) { alert('En la proforma no hay tratamiento para guardar.'); return; }
-      const bloque = { id:'TR_'+Date.now(), codigo:siguienteCodigoBloque('TR', tratamientosGuardados), fecha:valProforma('fecha') || fechaISOHoy(), titulo:valProforma('proforma') || 'Tratamiento desde proforma', texto, tratamientos:filasTratamientosProforma(), fuente:'modulo_proforma_original' };
+      const bloque = { id:'TR_'+Date.now(), codigo:codigoFechaCorrelativo(tratamientosGuardados || []), fecha:valProforma('fecha') || fechaISOHoy(), titulo:valProforma('proforma') || 'Tratamiento desde proforma', texto, tratamientos:filasTratamientosProforma(), odontogramaSnapshot:odontogramaDesdeProforma(), fuente:'modulo_proforma_original' };
       tratamientosGuardados.push(bloque);
       const ev = document.getElementById('evTratamiento'); if(ev) ev.value = texto;
       renderSelectoresBloques();
@@ -1885,6 +1968,7 @@
       if(!p.lineas.length) { alert('En la proforma no hay líneas de presupuesto para guardar.'); return null; }
       presupuestos.push(JSON.parse(JSON.stringify(p)));
       presupuestoActual = JSON.parse(JSON.stringify(p));
+      aplicarUltimoOdontogramaDesdeProforma();
       renderSelectoresBloques();
       renderHistorialPresupuestos();
       const ok = await guardarHistoriaDrive(true);
@@ -1898,12 +1982,12 @@
       const trat = resumenTratamientoProforma();
       const p = presupuestoObjetoDesdeProforma();
       if (diag) {
-        const bloqueDx = { id:'DX_'+Date.now(), codigo:siguienteCodigoBloque('DX', diagnosticosGuardados), fecha:p.fecha, titulo:p.titulo || 'Diagnóstico desde proforma', texto:diag, fuente:'modulo_proforma_original' };
+        const bloqueDx = { id:'DX_'+Date.now(), codigo:codigoFechaCorrelativo(diagnosticosGuardados || []), fecha:p.fecha, titulo:p.titulo || 'Diagnóstico desde proforma', texto:diag, odontogramaSnapshot:odontogramaDesdeProforma(), fuente:'modulo_proforma_original' };
         diagnosticosGuardados.push(bloqueDx);
         const evD = document.getElementById('evDiagnostico'); if(evD) evD.value = diag;
       }
       if (trat) {
-        const bloqueTr = { id:'TR_'+Date.now(), codigo:siguienteCodigoBloque('TR', tratamientosGuardados), fecha:p.fecha, titulo:p.titulo || 'Tratamiento desde proforma', texto:trat, tratamientos:filasTratamientosProforma(), fuente:'modulo_proforma_original' };
+        const bloqueTr = { id:'TR_'+Date.now(), codigo:codigoFechaCorrelativo(tratamientosGuardados || []), fecha:p.fecha, titulo:p.titulo || 'Tratamiento desde proforma', texto:trat, tratamientos:filasTratamientosProforma(), odontogramaSnapshot:odontogramaDesdeProforma(), fuente:'modulo_proforma_original' };
         tratamientosGuardados.push(bloqueTr);
         const evT = document.getElementById('evTratamiento'); if(evT) evT.value = trat;
       }
@@ -1911,6 +1995,7 @@
         presupuestos.push(JSON.parse(JSON.stringify(p)));
         presupuestoActual = JSON.parse(JSON.stringify(p));
       }
+      aplicarUltimoOdontogramaDesdeProforma();
       // Alimenta la historia clínica con una evolución/resumen automático desde la proforma
       if (diag || trat || p.lineas.length) {
         const resumenProc = p.lineas.length ? p.lineas.map(l => `${l.pieza ? 'Pieza ' + l.pieza + ': ' : ''}${l.detalle}`).join('\n') : '';
@@ -1937,7 +2022,7 @@
 
     document.addEventListener('input', function(e){ actualizarAlertasMedicas(); if(['cedula','primerApellido','segundoApellido','nombres','fechaNacimiento'].includes(e.target.id)){ actualizarNombreArchivo(); actualizarResumenPaciente(); } });
     document.addEventListener('change', function(){ actualizarAlertasMedicas(); });
-    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); actualizarAlertasMedicas(); cargarModuloProformaOriginal();
+    fechaHoy(); actualizarListaPacientes(); actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); actualizarAlertasMedicas(); actualizarCodigosSugeridosProforma(); cargarModuloProformaOriginal();
   </script>
 </body>
 </html>
