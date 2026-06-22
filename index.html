@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>*** HCV7_6*** HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>
+  <title>HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -694,13 +694,71 @@
     }
 
 
+    function compactarBloqueClinico(b) {
+      b = b || {};
+      return {
+        id: b.id || '',
+        codigo: b.codigo || '',
+        fecha: b.fecha || '',
+        titulo: b.titulo || '',
+        pieza: b.pieza || '',
+        texto: b.texto || '',
+        fuente: b.fuente || '',
+        fechaGuardado: b.fechaGuardado || ''
+      };
+    }
+
+    function compactarPresupuestoDrive(p) {
+      p = p || {};
+      return {
+        id: p.id || '',
+        codigo: p.codigo || '',
+        titulo: p.titulo || '',
+        fecha: p.fecha || '',
+        observacion: p.observacion || '',
+        descuento: Number(p.descuento || 0),
+        paciente: p.paciente || nombrePacienteActual(),
+        cedula: p.cedula || (document.getElementById('cedula')?.value || ''),
+        fuente: p.fuente || '',
+        fechaGuardado: p.fechaGuardado || '',
+        lineas: Array.isArray(p.lineas) ? p.lineas.map(l => ({
+          id: l.id || '',
+          pieza: l.pieza || '',
+          detalle: l.detalle || '',
+          cantidad: Number(l.cantidad || 1),
+          valor: Number(l.valor || 0),
+          total: Number(l.total || 0),
+          observacion: l.observacion || ''
+        })) : []
+      };
+    }
+
+    function prepararDatosDrive(datos) {
+      // Mantiene el mismo guardado que ya funcionaba, pero evita duplicar textos/odontogramas
+      // grandes dentro de cada diagnóstico, tratamiento y proforma. Esto previene que el
+      // JSONP de Drive falle después de llenar la proforma.
+      const limpio = JSON.parse(JSON.stringify(datos || {}));
+      limpio.diagnosticosGuardados = Array.isArray(diagnosticosGuardados) ? diagnosticosGuardados.map(compactarBloqueClinico) : [];
+      limpio.tratamientosGuardados = Array.isArray(tratamientosGuardados) ? tratamientosGuardados.map(b => Object.assign(compactarBloqueClinico(b), {
+        tratamientos: Array.isArray(b.tratamientos) ? b.tratamientos.map(t => ({
+          pieza: t.pieza || '', tratamiento: t.tratamiento || '', cantidad: Number(t.cantidad || 1), valor: Number(t.valor || 0), total: Number(t.total || 0), obs: t.obs || ''
+        })) : []
+      })) : [];
+      limpio.presupuestos = Array.isArray(presupuestos) ? presupuestos.map(compactarPresupuestoDrive) : [];
+      limpio.presupuestoActual = presupuestoActual ? compactarPresupuestoDrive(presupuestoActual) : null;
+      limpio.odontograma = odontograma && typeof odontograma === 'object' ? odontograma : {};
+      limpio.fechaUltimaActualizacion = new Date().toISOString();
+      return limpio;
+    }
+
     async function guardarHistoriaDrive(silencioso=false) {
       if(!validarMinimo()) return false;
       calcularEdad();
       const datos = obtenerDatosFormulario();
+      const datosDrive = prepararDatosDrive(datos);
       setDriveStatus('Guardando historia clínica en Google Drive...', 'info');
       try {
-        const r = await enviarDrive({ accion:'guardarHistoria', ...datos });
+        const r = await enviarDrive({ accion:'guardarHistoria', ...datosDrive });
         if(r.ok) {
           localStorage.setItem(VERSION_KEY + datos.cedula.trim(), JSON.stringify(datos));
           setDriveStatus('✓ ' + (r.mensaje || 'Historia guardada en Drive') + ' · Carpeta: ' + (r.carpetaPaciente || datos.nombreArchivo), 'ok');
@@ -1931,75 +1989,6 @@
       return mapa;
     }
 
-
-
-    // V7.6: guardado compacto SOLO para botones de Proforma.
-    // No toca el botón principal Guardar en Drive, que se mantiene exactamente como funcionaba.
-    function compactarDiagnosticoParaDrive(b) {
-      b = b || {};
-      return {
-        id: b.id || '', codigo: b.codigo || '', fecha: b.fecha || '',
-        titulo: b.titulo || '', texto: b.texto || '', fuente: b.fuente || '',
-        fechaGuardado: b.fechaGuardado || new Date().toISOString(),
-        odontogramaSnapshot: b.odontogramaSnapshot || {}
-      };
-    }
-
-    function compactarTratamientoParaDrive(b) {
-      b = b || {};
-      return {
-        id: b.id || '', codigo: b.codigo || '', fecha: b.fecha || '',
-        titulo: b.titulo || '', texto: b.texto || '', fuente: b.fuente || '',
-        fechaGuardado: b.fechaGuardado || new Date().toISOString(),
-        tratamientos: Array.isArray(b.tratamientos) ? b.tratamientos.map(t => ({
-          pieza: t.pieza || '', tratamiento: t.tratamiento || '',
-          cantidad: Number(t.cantidad || 1), valor: Number(t.valor || 0),
-          total: Number(t.total || 0), obs: t.obs || ''
-        })) : [],
-        odontogramaSnapshot: b.odontogramaSnapshot || {}
-      };
-    }
-
-    function compactarPresupuestoParaDrive(p) {
-      p = p || {};
-      return {
-        id: p.id || '', codigo: p.codigo || '', titulo: p.titulo || '',
-        fecha: p.fecha || '', paciente: p.paciente || nombrePacienteActual(),
-        cedula: p.cedula || (document.getElementById('cedula')?.value || ''),
-        observacion: p.observacion || '', descuento: Number(p.descuento || 0),
-        fuente: p.fuente || '', fechaGuardado: p.fechaGuardado || new Date().toISOString(),
-        lineas: Array.isArray(p.lineas) ? p.lineas.map(l => ({
-          id: l.id || '', pieza: l.pieza || '', detalle: l.detalle || '',
-          cantidad: Number(l.cantidad || 1), valor: Number(l.valor || 0),
-          total: Number(l.total || 0), observacion: l.observacion || ''
-        })) : []
-      };
-    }
-
-    async function guardarHistoriaDriveCompactaProforma() {
-      // Mantiene intacto el enlace original con Drive, pero reduce el tamaño de los bloques
-      // generados por la proforma para evitar que Google Script/JSONP rechace la petición.
-      const dxOriginal = diagnosticosGuardados;
-      const trOriginal = tratamientosGuardados;
-      const ppOriginal = presupuestos;
-      const paOriginal = presupuestoActual;
-      try {
-        diagnosticosGuardados = Array.isArray(dxOriginal) ? dxOriginal.map(compactarDiagnosticoParaDrive) : [];
-        tratamientosGuardados = Array.isArray(trOriginal) ? trOriginal.map(compactarTratamientoParaDrive) : [];
-        presupuestos = Array.isArray(ppOriginal) ? ppOriginal.map(compactarPresupuestoParaDrive) : [];
-        presupuestoActual = paOriginal ? compactarPresupuestoParaDrive(paOriginal) : paOriginal;
-        return await guardarHistoriaDrive(true);
-      } finally {
-        diagnosticosGuardados = dxOriginal;
-        tratamientosGuardados = trOriginal;
-        presupuestos = ppOriginal;
-        presupuestoActual = paOriginal;
-        renderSelectoresBloques();
-        renderHistorialPresupuestos();
-        actualizarCodigosSugeridosProforma();
-      }
-    }
-
     async function guardarDiagnosticoDesdeProforma() {
       if(!validarMinimo()) return;
       const texto = resumenDiagnosticoProforma();
@@ -2010,7 +1999,8 @@
       aplicarUltimoOdontogramaDesdeProforma();
       aplicarUltimoOdontogramaDesdeProforma();
       renderSelectoresBloques();
-      const ok = await guardarHistoriaDriveCompactaProforma();
+      const ok = await guardarHistoriaDrive(true);
+      actualizarCodigosSugeridosProforma();
       alert(ok ? 'Diagnóstico guardado y enviado a la historia clínica en Drive.' : 'Diagnóstico guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
     }
 
@@ -2022,7 +2012,8 @@
       tratamientosGuardados.push(bloque);
       const ev = document.getElementById('evTratamiento'); if(ev) ev.value = texto;
       renderSelectoresBloques();
-      const ok = await guardarHistoriaDriveCompactaProforma();
+      const ok = await guardarHistoriaDrive(true);
+      actualizarCodigosSugeridosProforma();
       alert(ok ? 'Tratamiento guardado y enviado a la historia clínica en Drive.' : 'Tratamiento guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
     }
 
@@ -2035,7 +2026,8 @@
       aplicarUltimoOdontogramaDesdeProforma();
       renderSelectoresBloques();
       renderHistorialPresupuestos();
-      const ok = await guardarHistoriaDriveCompactaProforma();
+      const ok = await guardarHistoriaDrive(true);
+      actualizarCodigosSugeridosProforma();
       alert(ok ? 'Presupuesto/proforma guardado en la historia clínica en Drive.' : 'Presupuesto guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
       return p;
     }
@@ -2080,7 +2072,8 @@
       }
       renderSelectoresBloques();
       renderHistorialPresupuestos();
-      const okDrive = await guardarHistoriaDriveCompactaProforma();
+      const okDrive = await guardarHistoriaDrive(true);
+      actualizarCodigosSugeridosProforma();
       alert(okDrive ? 'Proforma guardada: diagnóstico, tratamiento y presupuesto alimentaron la historia clínica y quedaron en Drive.' : 'La proforma alimentó la historia en pantalla, pero Drive no confirmó el guardado. Revise la conexión o presione Guardar en Drive una sola vez.');
     }
 
