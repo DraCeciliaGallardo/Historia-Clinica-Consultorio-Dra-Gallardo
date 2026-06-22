@@ -159,6 +159,14 @@
     .budget-pdf-note { margin-top:14px; border:1px solid #ddd; border-radius:12px; padding:11px; font-size:12px; line-height:1.35; background:#fff; }
     .budget-pdf-footer { margin:28px auto 0; text-align:center; font-size:14px; line-height:1.4; }
     .budget-icon-card { background:#fff; border:1px solid var(--violeta-linea); border-radius:10px; padding:12px; display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+
+    .block-manager { margin: 12px 0; background: #faf8ff; border: 1px solid var(--violeta-linea); border-radius: 8px; padding: 12px; }
+    .block-manager-title { color: var(--violeta-oscuro); font-weight: 900; text-transform: uppercase; font-size: 12px; margin-bottom: 8px; }
+    .block-manager-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .block-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: end; }
+    .block-row button { padding: 10px 12px; white-space: nowrap; }
+    .block-note { margin-top: 8px; color:#66617c; font-size:11px; }
+    @media (max-width: 900px) { .block-manager-grid, .block-row { grid-template-columns: 1fr; } }
     .budget-icon-card .icon { font-size:36px; }
     @media (max-width: 1100px) { .presupuesto-layout { grid-template-columns:1fr; } }
 
@@ -278,6 +286,24 @@
             <div class="kpi-card"><small>Próxima cita</small><strong id="kpiProximaCita">—</strong></div>
           </div>
 
+
+          <div class="block-manager actions-print-hide">
+            <div class="block-manager-title">📁 Archivos guardados del paciente</div>
+            <div class="block-manager-grid">
+              <div class="block-row">
+                <div><label for="selectorDiagnosticos">Diagnósticos guardados</label><select id="selectorDiagnosticos"><option value="">No hay diagnósticos guardados</option></select></div>
+                <button type="button" class="secondary" onclick="cargarDiagnosticoSeleccionado()">📥 Cargar</button>
+                <button type="button" class="primary" onclick="guardarDiagnosticoActual()">💾 Guardar diagnóstico</button>
+              </div>
+              <div class="block-row">
+                <div><label for="selectorTratamientos">Tratamientos guardados</label><select id="selectorTratamientos"><option value="">No hay tratamientos guardados</option></select></div>
+                <button type="button" class="secondary" onclick="cargarTratamientoSeleccionado()">📥 Cargar</button>
+                <button type="button" class="primary" onclick="guardarTratamientoActual()">💾 Guardar tratamiento</button>
+              </div>
+            </div>
+            <div class="block-note">Cada botón crea un archivo separado en la carpeta del paciente y también deja el índice dentro de la historia clínica para que vuelva a aparecer en la lista desplegable.</div>
+          </div>
+
           <div class="grid">
             <div><label for="evFecha">Fecha de atención</label><input id="evFecha" type="date"></div>
             <div><label for="evPieza">Pieza dental</label><input id="evPieza" type="text" placeholder="Ej.: 11, 26, 46"></div>
@@ -354,6 +380,8 @@
 
               <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;" class="actions-print-hide">
                 <button type="button" class="primary" onclick="guardarPiezaOdontograma()">💾 Guardar pieza</button>
+                <button type="button" class="primary" onclick="guardarDiagnosticoDesdeOdontograma()">💾 Guardar diagnóstico</button>
+                <button type="button" class="primary" onclick="guardarTratamientoDesdeOdontograma()">💾 Guardar tratamiento</button>
                 <button type="button" class="secondary" onclick="limpiarPiezaOdontograma()">🧹 Limpiar pieza</button>
               </div>
 
@@ -376,7 +404,7 @@
             <div class="icon">💰</div>
             <div>
               <b>Módulo independiente de presupuestos</b><br>
-              <span class="note">La doctora puede crear un presupuesto nuevo, guardar varios presupuestos dentro de la historia y generar PDF para entregar al paciente.</span>
+              <span class="note">La doctora puede crear un presupuesto nuevo, guardar diagnósticos, tratamientos y presupuestos en archivos separados dentro de la carpeta del paciente y generar PDF para entregar al paciente.</span>
             </div>
           </div>
 
@@ -386,6 +414,16 @@
             <button type="button" class="secondary" onclick="agregarLineaPresupuesto()">➕ Agregar línea</button>
             <button type="button" class="primary" onclick="guardarPresupuestoActual()">💾 Guardar presupuesto</button>
             <button type="button" class="secondary" onclick="generarPDFPresupuestoActual()">📄 PDF presupuesto</button>
+          </div>
+
+
+          <div class="block-manager actions-print-hide">
+            <div class="block-manager-title">📁 Presupuestos / proformas guardadas</div>
+            <div class="block-row">
+              <div><label for="selectorPresupuestos">Presupuestos guardados del paciente</label><select id="selectorPresupuestos"><option value="">No hay presupuestos guardados</option></select></div>
+              <button type="button" class="secondary" onclick="cargarPresupuestoSeleccionado()">📥 Cargar presupuesto</button>
+              <button type="button" class="primary" onclick="guardarPresupuestoActual()">💾 Guardar presupuesto / proforma</button>
+            </div>
           </div>
 
           <div class="presupuesto-layout">
@@ -460,6 +498,8 @@
     let evoluciones = [];
     let examenes = [];
     let odontograma = {};
+    let diagnosticosGuardados = [];
+    let tratamientosGuardados = [];
     let presupuestos = [];
     let presupuestoActual = crearPresupuestoVacio();
     let presupuestoActualId = null;
@@ -488,6 +528,8 @@
       datos.evoluciones = evoluciones;
       datos.examenes = examenes;
       datos.odontograma = odontograma;
+      datos.diagnosticosGuardados = diagnosticosGuardados;
+      datos.tratamientosGuardados = tratamientosGuardados;
       sincronizarPresupuestoActual();
       datos.presupuestos = presupuestos;
       datos.presupuestoActual = presupuestoActual;
@@ -512,6 +554,9 @@
       evoluciones = Array.isArray(datos.evoluciones) ? datos.evoluciones : [];
       examenes = Array.isArray(datos.examenes) ? datos.examenes : [];
       odontograma = datos.odontograma && typeof datos.odontograma === 'object' ? datos.odontograma : {};
+      diagnosticosGuardados = Array.isArray(datos.diagnosticosGuardados) ? datos.diagnosticosGuardados : [];
+      tratamientosGuardados = Array.isArray(datos.tratamientosGuardados) ? datos.tratamientosGuardados : [];
+      migrarBloquesDesdeHistoria();
       presupuestos = Array.isArray(datos.presupuestos) ? datos.presupuestos : [];
       presupuestoActual = datos.presupuestoActual && typeof datos.presupuestoActual === 'object' ? datos.presupuestoActual : crearPresupuestoVacio();
       presupuestoActualId = presupuestoActual.id || null;
@@ -524,6 +569,7 @@
       cargarPresupuestoActualEnPantalla();
       renderPresupuestoActual();
       renderHistorialPresupuestos();
+      renderSelectoresBloques();
       actualizarResumenPaciente();
       actualizarAlertasMedicas();
 
@@ -610,7 +656,7 @@
         };
 
         script.src = APPS_SCRIPT_URL
-          + '?accion=guardarHistoria'
+          + '?accion=' + encodeURIComponent(payload.accion || 'guardarHistoria')
           + '&payload=' + encodeURIComponent(JSON.stringify(payload))
           + '&callback=' + encodeURIComponent(callbackName)
           + '&t=' + Date.now();
@@ -749,7 +795,7 @@
 
 
     function nuevoPaciente() { if(confirm('¿Desea limpiar el formulario para crear un nuevo paciente?')) limpiarFormulario(); }
-    function limpiarFormulario() { formHistoria.reset(); buscarCedula.value=''; edad.value=''; evoluciones=[]; examenes=[]; editandoEvolucionIndex=null; actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); actualizarResumenPaciente(); }
+    function limpiarFormulario() { formHistoria.reset(); buscarCedula.value=''; edad.value=''; evoluciones=[]; examenes=[]; diagnosticosGuardados=[]; tratamientosGuardados=[]; presupuestos=[]; presupuestoActual=crearPresupuestoVacio(); presupuestoActualId=presupuestoActual.id; odontograma={}; editandoEvolucionIndex=null; actualizarNombreArchivo(); renderEvoluciones(); renderExamenes(); renderOdontograma(); cargarPresupuestoActualEnPantalla(); renderPresupuestoActual(); renderHistorialPresupuestos(); renderSelectoresBloques(); actualizarResumenPaciente(); }
     function eliminarPaciente() { const c=cedula.value.trim(); if(!c){ alert('Primero cargue o ingrese la cédula del paciente.'); return; } if(!confirm('¿Eliminar la historia guardada de la cédula ' + c + ' en este navegador?')) return; localStorage.removeItem(VERSION_KEY+c); actualizarListaPacientes(); alert('Paciente eliminado del almacenamiento local.'); }
     function descargarJSON() { if(!validarMinimo()) return; const datos=obtenerDatosFormulario(); const blob=new Blob([JSON.stringify(datos,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=datos.nombreArchivo+'_historia_clinica_HCV3_1.json'; a.click(); URL.revokeObjectURL(a.href); }
     function importarJSONClick() { document.getElementById('importFile').click(); }
@@ -1012,6 +1058,170 @@
       examenes.splice(i,1);
       renderExamenes();
       await guardarHistoriaDrive(true);
+    }
+
+
+    function siguienteCodigoBloque(prefijo, lista) {
+      const n = (Array.isArray(lista) ? lista.length : 0) + 1;
+      return prefijo + '-' + String(n).padStart(4, '0');
+    }
+
+    function nombrePacienteActual() {
+      return `${nombres?.value || ''} ${primerApellido?.value || ''} ${segundoApellido?.value || ''}`.trim();
+    }
+
+    function migrarBloquesDesdeHistoria() {
+      // Si una historia antigua no trae índices separados, se alimenta desde evoluciones para no perder lo ya guardado.
+      if ((!diagnosticosGuardados || !diagnosticosGuardados.length) && Array.isArray(evoluciones)) {
+        diagnosticosGuardados = evoluciones.filter(e => e && e.diagnostico).map((e, i) => ({
+          id: e.id || ('DX-MIG-' + String(i + 1).padStart(4, '0')),
+          codigo: 'DX-MIG-' + String(i + 1).padStart(4, '0'),
+          fecha: e.fecha || fechaISOHoy(),
+          titulo: textoCorto(e.diagnostico || 'Diagnóstico', 70),
+          pieza: e.pieza || '',
+          texto: e.diagnostico || '',
+          origen: 'Evolución clínica anterior',
+          fechaGuardado: e.fechaRegistro || new Date().toISOString()
+        }));
+      }
+      if ((!tratamientosGuardados || !tratamientosGuardados.length) && Array.isArray(evoluciones)) {
+        tratamientosGuardados = evoluciones.filter(e => e && (e.tratamiento || e.procedimiento)).map((e, i) => ({
+          id: e.id || ('TR-MIG-' + String(i + 1).padStart(4, '0')),
+          codigo: 'TR-MIG-' + String(i + 1).padStart(4, '0'),
+          fecha: e.fecha || fechaISOHoy(),
+          titulo: textoCorto(e.tratamiento || e.procedimiento || 'Tratamiento', 70),
+          pieza: e.pieza || '',
+          texto: e.tratamiento || e.procedimiento || '',
+          origen: 'Evolución clínica anterior',
+          fechaGuardado: e.fechaRegistro || new Date().toISOString()
+        }));
+      }
+    }
+
+    function renderSelectoresBloques() {
+      const dxSel = document.getElementById('selectorDiagnosticos');
+      const trSel = document.getElementById('selectorTratamientos');
+      const ppSel = document.getElementById('selectorPresupuestos');
+      const option = (b) => `<option value="${escapar(b.id || b.codigo)}">${escapar((b.codigo || b.id || '') + ' · ' + formatearFecha(b.fecha) + ' · ' + textoCorto(b.titulo || b.texto || b.detalle || 'Sin título', 55))}</option>`;
+      if (dxSel) dxSel.innerHTML = diagnosticosGuardados.length ? '<option value="">Seleccione diagnóstico</option>' + diagnosticosGuardados.map(option).join('') : '<option value="">No hay diagnósticos guardados</option>';
+      if (trSel) trSel.innerHTML = tratamientosGuardados.length ? '<option value="">Seleccione tratamiento</option>' + tratamientosGuardados.map(option).join('') : '<option value="">No hay tratamientos guardados</option>';
+      if (ppSel) ppSel.innerHTML = presupuestos.length ? '<option value="">Seleccione presupuesto/proforma</option>' + presupuestos.map(p => {
+        const tot = calcularTotalPresupuesto(p);
+        return `<option value="${escapar(p.id)}">${escapar((p.codigo || p.id || '') + ' · ' + formatearFecha(p.fecha) + ' · ' + textoCorto(p.titulo || 'Presupuesto', 45) + ' · ' + formatoUSD(tot.total))}</option>`;
+      }).join('') : '<option value="">No hay presupuestos guardados</option>';
+    }
+
+    async function guardarBloquePaciente(tipo, bloque) {
+      // Guarda el índice dentro de la historia y, si Apps Script está actualizado, crea también el JSON separado en Drive.
+      const datosBase = obtenerDatosFormulario();
+      try {
+        const r = await enviarDrive({
+          accion: 'guardarBloquePaciente',
+          cedula: datosBase.cedula,
+          primerApellido: datosBase.primerApellido,
+          segundoApellido: datosBase.segundoApellido,
+          nombres: datosBase.nombres,
+          nombreArchivo: datosBase.nombreArchivo,
+          tipo,
+          bloque
+        });
+        return r;
+      } catch (e) {
+        return { ok:false, mensaje:e.message };
+      }
+    }
+
+    async function guardarDiagnosticoActual() {
+      if(!validarMinimo()) return;
+      const texto = (document.getElementById('evDiagnostico')?.value || '').trim();
+      if(!texto) { alert('Escriba el diagnóstico antes de guardarlo.'); return; }
+      const bloque = {
+        id: 'DX_' + Date.now(),
+        codigo: siguienteCodigoBloque('DX', diagnosticosGuardados),
+        fecha: document.getElementById('evFecha')?.value || fechaISOHoy(),
+        titulo: textoCorto(texto, 70),
+        pieza: document.getElementById('evPieza')?.value || '',
+        texto,
+        paciente: nombrePacienteActual(),
+        cedula: cedula.value,
+        origen: 'Historia clínica / evolución',
+        fechaGuardado: new Date().toISOString()
+      };
+      diagnosticosGuardados.push(bloque);
+      renderSelectoresBloques();
+      await guardarHistoriaDrive(true);
+      const r = await guardarBloquePaciente('diagnostico', bloque);
+      setDriveStatus((r && r.ok) ? '✓ Diagnóstico guardado como archivo separado en Drive.' : '✓ Diagnóstico guardado en la historia. Para archivo separado, actualice Apps Script.', (r && r.ok) ? 'ok' : 'info');
+      alert('Diagnóstico guardado para este paciente.');
+    }
+
+    async function guardarTratamientoActual() {
+      if(!validarMinimo()) return;
+      const texto = (document.getElementById('evTratamiento')?.value || document.getElementById('evProcedimiento')?.value || '').trim();
+      if(!texto) { alert('Escriba el tratamiento o procedimiento antes de guardarlo.'); return; }
+      const bloque = {
+        id: 'TR_' + Date.now(),
+        codigo: siguienteCodigoBloque('TR', tratamientosGuardados),
+        fecha: document.getElementById('evFecha')?.value || fechaISOHoy(),
+        titulo: textoCorto(texto, 70),
+        pieza: document.getElementById('evPieza')?.value || '',
+        texto,
+        paciente: nombrePacienteActual(),
+        cedula: cedula.value,
+        origen: 'Historia clínica / evolución',
+        fechaGuardado: new Date().toISOString()
+      };
+      tratamientosGuardados.push(bloque);
+      renderSelectoresBloques();
+      await guardarHistoriaDrive(true);
+      const r = await guardarBloquePaciente('tratamiento', bloque);
+      setDriveStatus((r && r.ok) ? '✓ Tratamiento guardado como archivo separado en Drive.' : '✓ Tratamiento guardado en la historia. Para archivo separado, actualice Apps Script.', (r && r.ok) ? 'ok' : 'info');
+      alert('Tratamiento guardado para este paciente.');
+    }
+
+    function cargarDiagnosticoSeleccionado() {
+      const id = document.getElementById('selectorDiagnosticos')?.value || '';
+      const b = diagnosticosGuardados.find(x => (x.id || x.codigo) === id);
+      if(!b) return;
+      if (document.getElementById('evDiagnostico')) evDiagnostico.value = b.texto || '';
+      if (document.getElementById('evPieza') && b.pieza) evPieza.value = b.pieza;
+      if (document.getElementById('evFecha') && b.fecha) evFecha.value = b.fecha;
+    }
+
+    function cargarTratamientoSeleccionado() {
+      const id = document.getElementById('selectorTratamientos')?.value || '';
+      const b = tratamientosGuardados.find(x => (x.id || x.codigo) === id);
+      if(!b) return;
+      if (document.getElementById('evTratamiento')) evTratamiento.value = b.texto || '';
+      if (document.getElementById('evPieza') && b.pieza) evPieza.value = b.pieza;
+      if (document.getElementById('evFecha') && b.fecha) evFecha.value = b.fecha;
+    }
+
+    async function guardarDiagnosticoDesdeOdontograma() {
+      if(!piezaOdontoActiva) { alert('Seleccione una pieza del odontograma.'); return; }
+      const estado = document.getElementById('odontoEstado')?.value || 'Sano';
+      const obs = document.getElementById('odontoObservacion')?.value || '';
+      const texto = `Pieza ${piezaOdontoActiva}: ${estado}${obs ? '. ' + obs : ''}`;
+      if (document.getElementById('evFecha')) evFecha.value = fechaISOHoy();
+      if (document.getElementById('evPieza')) evPieza.value = piezaOdontoActiva;
+      if (document.getElementById('evDiagnostico')) evDiagnostico.value = texto;
+      await guardarDiagnosticoActual();
+    }
+
+    async function guardarTratamientoDesdeOdontograma() {
+      if(!piezaOdontoActiva) { alert('Seleccione una pieza del odontograma.'); return; }
+      const trat = (document.getElementById('odontoTratamiento')?.value || '').trim();
+      const obs = document.getElementById('odontoObservacion')?.value || '';
+      const texto = `Pieza ${piezaOdontoActiva}: ${trat || 'Tratamiento pendiente'}${obs ? '. ' + obs : ''}`;
+      if (document.getElementById('evFecha')) evFecha.value = fechaISOHoy();
+      if (document.getElementById('evPieza')) evPieza.value = piezaOdontoActiva;
+      if (document.getElementById('evTratamiento')) evTratamiento.value = texto;
+      await guardarTratamientoActual();
+    }
+
+    function cargarPresupuestoSeleccionado() {
+      const id = document.getElementById('selectorPresupuestos')?.value || '';
+      if(id) cargarPresupuesto(id);
     }
 
 
@@ -1293,7 +1503,7 @@
       if (letrasEl) letrasEl.textContent = numeroALetrasBasico(tot.total);
     }
 
-    function guardarPresupuestoActual() {
+    async function guardarPresupuestoActual() {
       sincronizarPresupuestoActual();
       if (!presupuestoActual.lineas || !presupuestoActual.lineas.length) {
         alert('Agregue al menos una línea antes de guardar el presupuesto.');
@@ -1301,6 +1511,9 @@
       }
 
       presupuestoActual.fechaGuardado = new Date().toISOString();
+      if (!presupuestoActual.codigo) presupuestoActual.codigo = siguienteCodigoBloque('PP', presupuestos);
+      presupuestoActual.paciente = nombrePacienteActual();
+      presupuestoActual.cedula = cedula.value;
       const idx = presupuestos.findIndex(p => p.id === presupuestoActual.id);
       const copia = JSON.parse(JSON.stringify(presupuestoActual));
 
@@ -1311,8 +1524,12 @@
       }
 
       renderHistorialPresupuestos();
+      renderSelectoresBloques();
       cargarPresupuestoActualEnPantalla();
-      alert('Presupuesto guardado dentro de la historia clínica. Recuerde presionar “Guardar en Google Drive” para respaldarlo en Drive.');
+      await guardarHistoriaDrive(true);
+      const r = await guardarBloquePaciente('presupuesto', copia);
+      setDriveStatus((r && r.ok) ? '✓ Presupuesto/proforma guardado como archivo separado en Drive.' : '✓ Presupuesto/proforma guardado en la historia. Para archivo separado, actualice Apps Script.', (r && r.ok) ? 'ok' : 'info');
+      alert('Presupuesto/proforma guardado para este paciente.');
     }
 
     function cargarPresupuesto(id) {
@@ -1330,6 +1547,8 @@
       presupuestos = presupuestos.filter(p => p.id !== id);
       if (presupuestoActual && presupuestoActual.id === id) nuevoPresupuesto();
       renderHistorialPresupuestos();
+      renderSelectoresBloques();
+      guardarHistoriaDrive(true);
     }
 
     function duplicarPresupuesto(id) {
@@ -1351,6 +1570,7 @@
         cont.innerHTML = '<div class="budget-history-empty">No hay presupuestos guardados todavía.</div>';
         return;
       }
+      renderSelectoresBloques();
       cont.innerHTML = `
         <table class="budget-history-table">
           <thead><tr><th>Fecha</th><th>Nombre</th><th>Total</th><th>Acción</th></tr></thead>
