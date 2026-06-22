@@ -188,6 +188,12 @@
     .evolucion-inputs-proforma { display:none !important; }
     .odontograma-direct-tools { display:none !important; }
     .proforma-help strong { color:var(--violeta-oscuro); }
+    .proforma-save-panel { display:none; margin-top:12px; padding:12px; border:1.5px solid var(--violeta-linea); border-radius:10px; background:linear-gradient(90deg,#faf8ff,#efe9fb); }
+    .proforma-save-panel.visible { display:block; }
+    .proforma-save-title { color:var(--violeta-oscuro); font-weight:900; text-transform:uppercase; font-size:12px; margin-bottom:8px; }
+    .proforma-save-buttons { display:flex; gap:10px; flex-wrap:wrap; }
+    .proforma-save-note { margin-top:8px; color:#66617c; font-size:11px; line-height:1.35; }
+
 
     @media (max-width: 1100px) { .odontograma-layout { grid-template-columns: 1fr; } }
 
@@ -291,10 +297,6 @@
           </div>
           <div class="proforma-actions actions-print-hide">
             <button type="button" class="secondary" onclick="prefillProformaDesdeHistoria()">👤 Traer datos del paciente</button>
-            <button type="button" class="primary" onclick="guardarTodoDesdeProforma()">💾 Guardar todo desde Proforma</button>
-            <button type="button" class="secondary" onclick="guardarDiagnosticoDesdeProforma()">💾 Guardar solo diagnóstico</button>
-            <button type="button" class="secondary" onclick="guardarTratamientoDesdeProforma()">💾 Guardar solo tratamiento</button>
-            <button type="button" class="secondary" onclick="guardarPresupuestoDesdeProforma()">💾 Guardar solo presupuesto</button>
           </div>
           <div class="block-manager actions-print-hide">
             <div class="block-manager-title">📁 Proformas guardadas del paciente</div>
@@ -306,6 +308,16 @@
           </div>
           <div class="proforma-frame-wrap">
             <iframe id="iframeProformaOriginal" title="Proforma odontológica original"></iframe>
+          </div>
+          <div id="panelGuardarProforma" class="proforma-save-panel actions-print-hide">
+            <div class="proforma-save-title">💾 Guardar lo llenado en Proforma</div>
+            <div class="proforma-save-buttons">
+              <button type="button" class="primary" onclick="guardarTodoDesdeProforma()">💾 Guardar diagnóstico + tratamiento + presupuesto</button>
+              <button type="button" class="secondary" onclick="guardarDiagnosticoDesdeProforma()">Guardar diagnóstico</button>
+              <button type="button" class="secondary" onclick="guardarTratamientoDesdeProforma()">Guardar tratamiento</button>
+              <button type="button" class="secondary" onclick="guardarPresupuestoDesdeProforma()">Guardar presupuesto/proforma</button>
+            </div>
+            <div class="proforma-save-note">Estos botones aparecen aquí abajo para usarlos después de llenar la proforma. Al guardar, se alimenta la historia clínica y se envía a Google Drive con el mismo guardado que ya funciona.</div>
           </div>
         </div>
       </section>
@@ -496,7 +508,11 @@
       datos.odontograma = odontograma;
       datos.diagnosticosGuardados = diagnosticosGuardados;
       datos.tratamientosGuardados = tratamientosGuardados;
-      sincronizarPresupuestoActual();
+      // Si el presupuesto viene del módulo Proforma original, no se debe sobrescribir
+      // con los campos antiguos/ocultos de presupuesto de la historia clínica.
+      if (!(presupuestoActual && presupuestoActual.fuente === 'modulo_proforma_original')) {
+        sincronizarPresupuestoActual();
+      }
       datos.presupuestos = presupuestos;
       datos.presupuestoActual = presupuestoActual;
       datos.nombreArchivo=obtenerNombreArchivo();
@@ -1714,6 +1730,32 @@
       };
     }
 
+
+    function prepararPanelGuardadoProforma() {
+      const d = docProforma();
+      if (!d || d.__hcvPanelGuardadoConectado) return;
+      d.__hcvPanelGuardadoConectado = true;
+      ['input','change','click','keyup'].forEach(evt => {
+        d.addEventListener(evt, function(){ setTimeout(actualizarPanelGuardadoProforma, 120); }, true);
+      });
+    }
+
+    function proformaTieneContenido() {
+      const d = docProforma();
+      if (!d) return false;
+      const diag = (valProforma('diagnosticoTexto') || '').trim();
+      const plan = (valProforma('planTexto') || '').trim();
+      const filas = filasTratamientosProforma();
+      const diagItems = d.querySelectorAll('#diagDetalle .clean-item').length;
+      return !!(diag || plan || filas.length || diagItems);
+    }
+
+    function actualizarPanelGuardadoProforma() {
+      const panel = document.getElementById('panelGuardarProforma');
+      if (!panel) return;
+      panel.classList.toggle('visible', proformaTieneContenido());
+    }
+
     function docProforma() {
       const frame = document.getElementById('iframeProformaOriginal');
       return frame && (frame.contentDocument || (frame.contentWindow && frame.contentWindow.document));
@@ -1745,10 +1787,23 @@
     function filasTratamientosProforma() {
       const d = docProforma();
       if (!d) return [];
+      const w = document.getElementById('iframeProformaOriginal')?.contentWindow;
+      const num = (txt) => Number(String(txt||'').replace(/[^0-9.,-]/g,'').replace(',', '.')) || 0;
+      // Prioriza el arreglo interno real de la proforma original. Así la pieza no se toma de una tabla vieja.
+      if (w && Array.isArray(w.tratamientos)) {
+        return w.tratamientos.filter(Boolean).map(t => ({
+          categoria: t.categoria || '',
+          tratamiento: t.tratamiento || '',
+          pieza: t.pieza || '',
+          cantidad: Number(t.cantidad || 1),
+          valor: Number(t.valor || 0),
+          total: Number(t.total || ((Number(t.cantidad || 1)) * Number(t.valor || 0))),
+          obs: t.obs || ''
+        })).filter(x => x.tratamiento || x.valor || x.pieza);
+      }
       const rows = [...d.querySelectorAll('#tabla tbody tr')];
       return rows.map(tr => {
         const c = [...tr.children].map(td => td.innerText.trim());
-        const num = (txt) => Number(String(txt||'').replace(/[^0-9.,-]/g,'').replace(',', '.')) || 0;
         return {
           categoria: c[0] || '', tratamiento: c[1] || '', pieza: c[2] === '-' ? '' : (c[2] || ''),
           cantidad: num(c[3]) || 1, valor: num(c[4]), total: num(c[5]), obs: c[6] || ''
@@ -1808,9 +1863,8 @@
       diagnosticosGuardados.push(bloque);
       const ev = document.getElementById('evDiagnostico'); if(ev) ev.value = texto;
       renderSelectoresBloques();
-      await guardarHistoriaDrive(true);
-      try { await guardarBloquePaciente('diagnosticos', bloque); } catch(e) {}
-      alert('Diagnóstico guardado y enviado a la historia clínica.');
+      const ok = await guardarHistoriaDrive(true);
+      alert(ok ? 'Diagnóstico guardado y enviado a la historia clínica en Drive.' : 'Diagnóstico guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
     }
 
     async function guardarTratamientoDesdeProforma() {
@@ -1821,9 +1875,8 @@
       tratamientosGuardados.push(bloque);
       const ev = document.getElementById('evTratamiento'); if(ev) ev.value = texto;
       renderSelectoresBloques();
-      await guardarHistoriaDrive(true);
-      try { await guardarBloquePaciente('tratamientos', bloque); } catch(e) {}
-      alert('Tratamiento guardado y enviado a la historia clínica.');
+      const ok = await guardarHistoriaDrive(true);
+      alert(ok ? 'Tratamiento guardado y enviado a la historia clínica en Drive.' : 'Tratamiento guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
     }
 
     async function guardarPresupuestoDesdeProforma() {
@@ -1834,9 +1887,8 @@
       presupuestoActual = JSON.parse(JSON.stringify(p));
       renderSelectoresBloques();
       renderHistorialPresupuestos();
-      await guardarHistoriaDrive(true);
-      try { await guardarBloquePaciente('presupuestos', p); } catch(e) {}
-      alert('Presupuesto/proforma guardado en la historia clínica.');
+      const ok = await guardarHistoriaDrive(true);
+      alert(ok ? 'Presupuesto/proforma guardado en la historia clínica en Drive.' : 'Presupuesto guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
       return p;
     }
 
@@ -1849,18 +1901,15 @@
         const bloqueDx = { id:'DX_'+Date.now(), codigo:siguienteCodigoBloque('DX', diagnosticosGuardados), fecha:p.fecha, titulo:p.titulo || 'Diagnóstico desde proforma', texto:diag, fuente:'modulo_proforma_original' };
         diagnosticosGuardados.push(bloqueDx);
         const evD = document.getElementById('evDiagnostico'); if(evD) evD.value = diag;
-        try { await guardarBloquePaciente('diagnosticos', bloqueDx); } catch(e) {}
       }
       if (trat) {
         const bloqueTr = { id:'TR_'+Date.now(), codigo:siguienteCodigoBloque('TR', tratamientosGuardados), fecha:p.fecha, titulo:p.titulo || 'Tratamiento desde proforma', texto:trat, tratamientos:filasTratamientosProforma(), fuente:'modulo_proforma_original' };
         tratamientosGuardados.push(bloqueTr);
         const evT = document.getElementById('evTratamiento'); if(evT) evT.value = trat;
-        try { await guardarBloquePaciente('tratamientos', bloqueTr); } catch(e) {}
       }
       if (p.lineas.length) {
         presupuestos.push(JSON.parse(JSON.stringify(p)));
         presupuestoActual = JSON.parse(JSON.stringify(p));
-        try { await guardarBloquePaciente('presupuestos', p); } catch(e) {}
       }
       // Alimenta la historia clínica con una evolución/resumen automático desde la proforma
       if (diag || trat || p.lineas.length) {
@@ -1882,8 +1931,8 @@
       }
       renderSelectoresBloques();
       renderHistorialPresupuestos();
-      await guardarHistoriaDrive(true);
-      alert('Proforma guardada: diagnóstico, tratamiento y presupuesto alimentaron la historia clínica.');
+      const okDrive = await guardarHistoriaDrive(true);
+      alert(okDrive ? 'Proforma guardada: diagnóstico, tratamiento y presupuesto alimentaron la historia clínica y quedaron en Drive.' : 'La proforma alimentó la historia en pantalla, pero Drive no confirmó el guardado. Revise la conexión o presione Guardar en Drive una sola vez.');
     }
 
     document.addEventListener('input', function(e){ actualizarAlertasMedicas(); if(['cedula','primerApellido','segundoApellido','nombres','fechaNacimiento'].includes(e.target.id)){ actualizarNombreArchivo(); actualizarResumenPaciente(); } });
