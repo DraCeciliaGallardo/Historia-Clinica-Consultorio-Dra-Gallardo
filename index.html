@@ -694,71 +694,13 @@
     }
 
 
-    function compactarBloqueClinico(b) {
-      b = b || {};
-      return {
-        id: b.id || '',
-        codigo: b.codigo || '',
-        fecha: b.fecha || '',
-        titulo: b.titulo || '',
-        pieza: b.pieza || '',
-        texto: b.texto || '',
-        fuente: b.fuente || '',
-        fechaGuardado: b.fechaGuardado || ''
-      };
-    }
-
-    function compactarPresupuestoDrive(p) {
-      p = p || {};
-      return {
-        id: p.id || '',
-        codigo: p.codigo || '',
-        titulo: p.titulo || '',
-        fecha: p.fecha || '',
-        observacion: p.observacion || '',
-        descuento: Number(p.descuento || 0),
-        paciente: p.paciente || nombrePacienteActual(),
-        cedula: p.cedula || (document.getElementById('cedula')?.value || ''),
-        fuente: p.fuente || '',
-        fechaGuardado: p.fechaGuardado || '',
-        lineas: Array.isArray(p.lineas) ? p.lineas.map(l => ({
-          id: l.id || '',
-          pieza: l.pieza || '',
-          detalle: l.detalle || '',
-          cantidad: Number(l.cantidad || 1),
-          valor: Number(l.valor || 0),
-          total: Number(l.total || 0),
-          observacion: l.observacion || ''
-        })) : []
-      };
-    }
-
-    function prepararDatosDrive(datos) {
-      // Mantiene el mismo guardado que ya funcionaba, pero evita duplicar textos/odontogramas
-      // grandes dentro de cada diagnóstico, tratamiento y proforma. Esto previene que el
-      // JSONP de Drive falle después de llenar la proforma.
-      const limpio = JSON.parse(JSON.stringify(datos || {}));
-      limpio.diagnosticosGuardados = Array.isArray(diagnosticosGuardados) ? diagnosticosGuardados.map(compactarBloqueClinico) : [];
-      limpio.tratamientosGuardados = Array.isArray(tratamientosGuardados) ? tratamientosGuardados.map(b => Object.assign(compactarBloqueClinico(b), {
-        tratamientos: Array.isArray(b.tratamientos) ? b.tratamientos.map(t => ({
-          pieza: t.pieza || '', tratamiento: t.tratamiento || '', cantidad: Number(t.cantidad || 1), valor: Number(t.valor || 0), total: Number(t.total || 0), obs: t.obs || ''
-        })) : []
-      })) : [];
-      limpio.presupuestos = Array.isArray(presupuestos) ? presupuestos.map(compactarPresupuestoDrive) : [];
-      limpio.presupuestoActual = presupuestoActual ? compactarPresupuestoDrive(presupuestoActual) : null;
-      limpio.odontograma = odontograma && typeof odontograma === 'object' ? odontograma : {};
-      limpio.fechaUltimaActualizacion = new Date().toISOString();
-      return limpio;
-    }
-
     async function guardarHistoriaDrive(silencioso=false) {
       if(!validarMinimo()) return false;
       calcularEdad();
       const datos = obtenerDatosFormulario();
-      const datosDrive = prepararDatosDrive(datos);
       setDriveStatus('Guardando historia clínica en Google Drive...', 'info');
       try {
-        const r = await enviarDrive({ accion:'guardarHistoria', ...datosDrive });
+        const r = await enviarDrive({ accion:'guardarHistoria', ...datos });
         if(r.ok) {
           localStorage.setItem(VERSION_KEY + datos.cedula.trim(), JSON.stringify(datos));
           setDriveStatus('✓ ' + (r.mensaje || 'Historia guardada en Drive') + ' · Carpeta: ' + (r.carpetaPaciente || datos.nombreArchivo), 'ok');
@@ -1945,9 +1887,14 @@
       const pf = document.getElementById('codigoSugeridoProforma');
       const dx = document.getElementById('codigoSugeridoDiagnostico');
       const tr = document.getElementById('codigoSugeridoTratamiento');
-      if (pf) pf.textContent = '(' + codigoFechaCorrelativo(presupuestos || []) + ')';
-      if (dx) dx.textContent = '(' + codigoFechaCorrelativo(diagnosticosGuardados || []) + ')';
-      if (tr) tr.textContent = '(' + codigoFechaCorrelativo(tratamientosGuardados || []) + ')';
+      const gp = document.getElementById('codigoPreviewGeneral');
+      const cPF = codigoFechaCorrelativo(presupuestos || []);
+      const cDX = codigoFechaCorrelativo(diagnosticosGuardados || []);
+      const cTR = codigoFechaCorrelativo(tratamientosGuardados || []);
+      if (pf) pf.textContent = cPF;
+      if (dx) dx.textContent = cDX;
+      if (tr) tr.textContent = cTR;
+      if (gp) gp.textContent = cPF;
     }
 
     function odontogramaDesdeProforma() {
@@ -2000,7 +1947,6 @@
       aplicarUltimoOdontogramaDesdeProforma();
       renderSelectoresBloques();
       const ok = await guardarHistoriaDrive(true);
-      actualizarCodigosSugeridosProforma();
       alert(ok ? 'Diagnóstico guardado y enviado a la historia clínica en Drive.' : 'Diagnóstico guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
     }
 
@@ -2013,7 +1959,6 @@
       const ev = document.getElementById('evTratamiento'); if(ev) ev.value = texto;
       renderSelectoresBloques();
       const ok = await guardarHistoriaDrive(true);
-      actualizarCodigosSugeridosProforma();
       alert(ok ? 'Tratamiento guardado y enviado a la historia clínica en Drive.' : 'Tratamiento guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
     }
 
@@ -2027,7 +1972,6 @@
       renderSelectoresBloques();
       renderHistorialPresupuestos();
       const ok = await guardarHistoriaDrive(true);
-      actualizarCodigosSugeridosProforma();
       alert(ok ? 'Presupuesto/proforma guardado en la historia clínica en Drive.' : 'Presupuesto guardado en pantalla, pero Drive no confirmó el guardado. Use Buscar/Guardar Drive para verificar.');
       return p;
     }
@@ -2073,7 +2017,6 @@
       renderSelectoresBloques();
       renderHistorialPresupuestos();
       const okDrive = await guardarHistoriaDrive(true);
-      actualizarCodigosSugeridosProforma();
       alert(okDrive ? 'Proforma guardada: diagnóstico, tratamiento y presupuesto alimentaron la historia clínica y quedaron en Drive.' : 'La proforma alimentó la historia en pantalla, pero Drive no confirmó el guardado. Revise la conexión o presione Guardar en Drive una sola vez.');
     }
 
