@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>***HCV7_3_SAFE1_DRIVE_INTACTO *** HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>
+  <title>***HCV7_4_SAFE2_PROFORMA_GUARDA_EN_HISTORIA_DRIVE *** HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -1947,7 +1947,9 @@
       diagnosticosGuardados.push(bloque);
       const ev = document.getElementById('evDiagnostico'); if(ev) ev.value = texto;
       refrescarDespuesDeGuardarProforma();
-      alert('Diagnóstico ' + bloque.codigo + ' agregado a la historia en pantalla. Para enviarlo a Drive, presione el botón superior “Guardar en Drive”.');
+      const okDrive = await guardarHistoriaDrive(true);
+      setDriveStatus(okDrive ? ('✓ Diagnóstico ' + bloque.codigo + ' guardado dentro de la historia en Drive.') : ('⚠ Diagnóstico ' + bloque.codigo + ' agregado en pantalla, pero no se pudo enviar a Drive.'), okDrive ? 'ok' : 'err');
+      alert(okDrive ? ('Diagnóstico ' + bloque.codigo + ' guardado en Drive dentro de la historia del paciente.') : ('Diagnóstico ' + bloque.codigo + ' agregado en pantalla, pero no se pudo guardar en Drive.'));
     }
 
     async function guardarTratamientoDesdeProforma() {
@@ -1958,7 +1960,9 @@
       tratamientosGuardados.push(bloque);
       const ev = document.getElementById('evTratamiento'); if(ev) ev.value = texto;
       refrescarDespuesDeGuardarProforma();
-      alert('Tratamiento propuesto ' + bloque.codigo + ' agregado a la historia en pantalla. Para enviarlo a Drive, presione el botón superior “Guardar en Drive”.');
+      const okDrive = await guardarHistoriaDrive(true);
+      setDriveStatus(okDrive ? ('✓ Tratamiento ' + bloque.codigo + ' guardado dentro de la historia en Drive.') : ('⚠ Tratamiento ' + bloque.codigo + ' agregado en pantalla, pero no se pudo enviar a Drive.'), okDrive ? 'ok' : 'err');
+      alert(okDrive ? ('Tratamiento propuesto ' + bloque.codigo + ' guardado en Drive dentro de la historia del paciente.') : ('Tratamiento ' + bloque.codigo + ' agregado en pantalla, pero no se pudo guardar en Drive.'));
     }
 
     async function guardarPresupuestoDesdeProforma() {
@@ -1968,7 +1972,9 @@
       presupuestos.push(JSON.parse(JSON.stringify(p)));
       presupuestoActual = JSON.parse(JSON.stringify(p));
       refrescarDespuesDeGuardarProforma();
-      alert('Proforma ' + p.codigo + ' agregada a la historia en pantalla. Para enviarla a Drive, presione el botón superior “Guardar en Drive”.');
+      const okDrive = await guardarHistoriaDrive(true);
+      setDriveStatus(okDrive ? ('✓ Proforma ' + p.codigo + ' guardada dentro de la historia en Drive.') : ('⚠ Proforma ' + p.codigo + ' agregada en pantalla, pero no se pudo enviar a Drive.'), okDrive ? 'ok' : 'err');
+      alert(okDrive ? ('Proforma ' + p.codigo + ' guardada en Drive dentro de la historia del paciente.') : ('Proforma ' + p.codigo + ' agregada en pantalla, pero no se pudo guardar en Drive.'));
       return p;
     }
 
@@ -2014,7 +2020,9 @@
         renderEvoluciones();
       }
       refrescarDespuesDeGuardarProforma();
-      alert((creados.length ? creados.join(', ') : 'La proforma') + ' quedó agregado en pantalla. Para enviar todo a Drive, presione el botón superior “Guardar en Drive”.');
+      const okDrive = await guardarHistoriaDrive(true);
+      setDriveStatus(okDrive ? ('✓ ' + (creados.length ? creados.join(', ') : 'La proforma') + ' guardado dentro de la historia en Drive.') : ('⚠ Se agregó en pantalla, pero no se pudo enviar a Drive.'), okDrive ? 'ok' : 'err');
+      alert(okDrive ? ((creados.length ? creados.join(', ') : 'La proforma') + ' quedó guardado en Drive dentro de la historia del paciente.') : ((creados.length ? creados.join(', ') : 'La proforma') + ' quedó agregado en pantalla, pero no se pudo guardar en Drive.'));
     }
 
     document.addEventListener('input', function(e){ actualizarAlertasMedicas(); if(['cedula','primerApellido','segundoApellido','nombres','fechaNacimiento'].includes(e.target.id)){ actualizarNombreArchivo(); actualizarResumenPaciente(); } });
