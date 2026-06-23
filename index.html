@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>***HCV7_4_SAFE2_PROFORMA_GUARDA_EN_HISTORIA_DRIVE *** HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>
+  <title>***HCV7_4_SAFE2B_DRIVE_INTACTO_PROFORMA_SEGURA *** HCV5 Integral - Historia Clínica, Odontograma y Presupuestos</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -313,10 +313,11 @@
           <div id="panelGuardarProforma" class="proforma-save-panel actions-print-hide">
             <div class="proforma-save-title">💾 Guardar al terminar la Proforma</div>
             <div class="proforma-save-buttons">
-              <button type="button" class="primary" onclick="guardarPresupuestoDesdeProforma()">💾 Guardar proforma <span id="codigoSugeridoProforma"></span></button>
-              <button type="button" class="secondary" onclick="guardarDiagnosticoDesdeProforma()">🦷 Guardar diagnóstico <span id="codigoSugeridoDiagnostico"></span></button>
-              <button type="button" class="secondary" onclick="guardarTratamientoDesdeProforma()">🛠️ Guardar tratamiento propuesto <span id="codigoSugeridoTratamiento"></span></button>
-              <button type="button" class="secondary" onclick="guardarTodoDesdeProforma()">Guardar los 3</button>
+              <button type="button" class="primary" onclick="guardarPresupuestoDesdeProforma()">💾 Paso 1: Guardar proforma <span id="codigoSugeridoProforma"></span></button>
+              <button type="button" class="secondary" onclick="guardarDiagnosticoDesdeProforma()">🦷 Paso 1: Guardar diagnóstico <span id="codigoSugeridoDiagnostico"></span></button>
+              <button type="button" class="secondary" onclick="guardarTratamientoDesdeProforma()">🛠️ Paso 1: Guardar tratamiento <span id="codigoSugeridoTratamiento"></span></button>
+              <button type="button" class="secondary" onclick="guardarTodoDesdeProforma()">Paso 1: Guardar los 3</button>
+              <div class="note full" style="grid-column:1/-1; font-weight:900; color:#6f55ad; background:#faf8ff; border:1px dashed #c7b7ea; border-radius:6px; padding:9px;">Después de guardar el diagnóstico/tratamiento/proforma aquí, presione arriba ☁ Guardar en Drive. Esta versión NO crea archivos separados ni cambia la conexión original con Drive.</div>
             </div>
             <div class="proforma-save-note">Los códigos se generan por paciente con correlativo y fecha, por ejemplo: 001-jun-22-26. Estos botones alimentan la historia clínica en pantalla. Para enviar a Google Drive use el botón superior “Guardar en Drive”, que queda intacto.</div>
           </div>
@@ -1947,9 +1948,7 @@
       diagnosticosGuardados.push(bloque);
       const ev = document.getElementById('evDiagnostico'); if(ev) ev.value = texto;
       refrescarDespuesDeGuardarProforma();
-      const okDrive = await guardarHistoriaDrive(true);
-      setDriveStatus(okDrive ? ('✓ Diagnóstico ' + bloque.codigo + ' guardado dentro de la historia en Drive.') : ('⚠ Diagnóstico ' + bloque.codigo + ' agregado en pantalla, pero no se pudo enviar a Drive.'), okDrive ? 'ok' : 'err');
-      alert(okDrive ? ('Diagnóstico ' + bloque.codigo + ' guardado en Drive dentro de la historia del paciente.') : ('Diagnóstico ' + bloque.codigo + ' agregado en pantalla, pero no se pudo guardar en Drive.'));
+      alert('Diagnóstico ' + bloque.codigo + ' agregado a la historia en pantalla. Ahora presione arriba ☁ Guardar en Drive para enviarlo a la historia del paciente.');
     }
 
     async function guardarTratamientoDesdeProforma() {
@@ -1960,9 +1959,7 @@
       tratamientosGuardados.push(bloque);
       const ev = document.getElementById('evTratamiento'); if(ev) ev.value = texto;
       refrescarDespuesDeGuardarProforma();
-      const okDrive = await guardarHistoriaDrive(true);
-      setDriveStatus(okDrive ? ('✓ Tratamiento ' + bloque.codigo + ' guardado dentro de la historia en Drive.') : ('⚠ Tratamiento ' + bloque.codigo + ' agregado en pantalla, pero no se pudo enviar a Drive.'), okDrive ? 'ok' : 'err');
-      alert(okDrive ? ('Tratamiento propuesto ' + bloque.codigo + ' guardado en Drive dentro de la historia del paciente.') : ('Tratamiento ' + bloque.codigo + ' agregado en pantalla, pero no se pudo guardar en Drive.'));
+      alert('Tratamiento propuesto ' + bloque.codigo + ' agregado a la historia en pantalla. Ahora presione arriba ☁ Guardar en Drive para enviarlo a la historia del paciente.');
     }
 
     async function guardarPresupuestoDesdeProforma() {
@@ -1972,9 +1969,7 @@
       presupuestos.push(JSON.parse(JSON.stringify(p)));
       presupuestoActual = JSON.parse(JSON.stringify(p));
       refrescarDespuesDeGuardarProforma();
-      const okDrive = await guardarHistoriaDrive(true);
-      setDriveStatus(okDrive ? ('✓ Proforma ' + p.codigo + ' guardada dentro de la historia en Drive.') : ('⚠ Proforma ' + p.codigo + ' agregada en pantalla, pero no se pudo enviar a Drive.'), okDrive ? 'ok' : 'err');
-      alert(okDrive ? ('Proforma ' + p.codigo + ' guardada en Drive dentro de la historia del paciente.') : ('Proforma ' + p.codigo + ' agregada en pantalla, pero no se pudo guardar en Drive.'));
+      alert('Proforma ' + p.codigo + ' agregada a la historia en pantalla. Ahora presione arriba ☁ Guardar en Drive para enviarla a la historia del paciente.');
       return p;
     }
 
@@ -2020,9 +2015,7 @@
         renderEvoluciones();
       }
       refrescarDespuesDeGuardarProforma();
-      const okDrive = await guardarHistoriaDrive(true);
-      setDriveStatus(okDrive ? ('✓ ' + (creados.length ? creados.join(', ') : 'La proforma') + ' guardado dentro de la historia en Drive.') : ('⚠ Se agregó en pantalla, pero no se pudo enviar a Drive.'), okDrive ? 'ok' : 'err');
-      alert(okDrive ? ((creados.length ? creados.join(', ') : 'La proforma') + ' quedó guardado en Drive dentro de la historia del paciente.') : ((creados.length ? creados.join(', ') : 'La proforma') + ' quedó agregado en pantalla, pero no se pudo guardar en Drive.'));
+      alert((creados.length ? creados.join(', ') : 'La proforma') + ' quedó agregado en pantalla. Ahora presione arriba ☁ Guardar en Drive para enviar todo a la historia del paciente.');
     }
 
     document.addEventListener('input', function(e){ actualizarAlertasMedicas(); if(['cedula','primerApellido','segundoApellido','nombres','fechaNacimiento'].includes(e.target.id)){ actualizarNombreArchivo(); actualizarResumenPaciente(); } });
