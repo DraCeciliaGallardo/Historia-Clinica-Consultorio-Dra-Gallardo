@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -474,7 +473,7 @@
           <div class="historia-receptor-only actions-print-hide">La evolución clínica está al final de la historia. Se llena automáticamente con el diagnóstico, tratamientos sugeridos y tratamientos realizados que se digitan arriba. Al buscar un paciente también carga la última consulta registrada. No genera archivos separados; todo queda dentro del único registro guardado en Drive.</div>
 
           <div class="historia-receptor-only">
-            La evolución clínica se actualiza desde la Historia Clínica Continua Numerada y desde el bloque Control de consultas. , diagnóstico ni tratamiento indicado porque esos datos están arriba.
+            La evolución clínica se actualiza desde la Historia Clínica Continua Numerada y desde el bloque Control de consultas. Ya no se digitan aquí pieza dental, motivo, diagnóstico ni tratamiento indicado porque esos datos están arriba.
           </div>
 
           <div style="display:none;">
@@ -652,40 +651,91 @@
     }
 
     async function enviarDrive(payload) {
-      // Guardado por JSONP/GET: evita CORS e iframe oculto.
-      // Apps Script debe tener doGet que acepte accion=guardarHistoria&payload=...&callback=...
+      // HCV8_7: Guardado estable en Drive.
+      // Para buscar usamos JSONP/GET. Para guardar usamos POST oculto + verificación por búsqueda.
+      // Esto evita que el guardado falle cuando la historia crece y la URL GET se vuelve demasiado larga.
+      const datosGuardar = { ...payload };
+      if (!datosGuardar.cedula) {
+        return { ok:false, mensaje:'No se recibió cédula para guardar.' };
+      }
+
+      const tokenGuardado = 'HCV_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      datosGuardar.hcvSaveToken = tokenGuardado;
+
       return new Promise((resolve) => {
-        const callbackName = 'hcvSaveCallback_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-        const script = document.createElement('script');
+        const iframeName = 'hcvPostFrame_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const iframe = document.createElement('iframe');
+        iframe.name = iframeName;
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
 
-        const timeout = setTimeout(() => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = APPS_SCRIPT_URL;
+        form.target = iframeName;
+        form.style.display = 'none';
+
+        const inputPayload = document.createElement('input');
+        inputPayload.type = 'hidden';
+        inputPayload.name = 'payload';
+        inputPayload.value = JSON.stringify({ accion:'guardarHistoria', ...datosGuardar });
+        form.appendChild(inputPayload);
+
+        document.body.appendChild(form);
+
+        let terminado = false;
+        const limpiar = () => {
+          setTimeout(() => {
+            try { if (form.parentNode) form.parentNode.removeChild(form); } catch(e) {}
+            try { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); } catch(e) {}
+          }, 300);
+        };
+
+        const verificarGuardado = async () => {
+          if (terminado) return;
+          terminado = true;
+          try {
+            // Dar unos segundos a Apps Script/Drive para escribir el JSON antes de verificar.
+            await new Promise(r => setTimeout(r, 2800));
+            const ced = String(datosGuardar.cedula || '').replace(/\D/g, '');
+            const verificacion = await buscarDriveJSONP(ced);
+            limpiar();
+            if (verificacion && verificacion.ok && verificacion.data && verificacion.data.hcvSaveToken === tokenGuardado) {
+              resolve({
+                ok:true,
+                mensaje:'Historia clínica guardada correctamente en Google Drive.',
+                carpetaPaciente: verificacion.carpetaPaciente || datosGuardar.nombreArchivo || ''
+              });
+            } else if (verificacion && verificacion.ok) {
+              // Si el script guardó pero no devolvió token por caché/versión anterior, no marcamos error duro.
+              resolve({
+                ok:true,
+                mensaje:'Historia enviada a Google Drive. Verifique buscando nuevamente el paciente.',
+                carpetaPaciente: verificacion.carpetaPaciente || datosGuardar.nombreArchivo || ''
+              });
+            } else {
+              resolve({ ok:false, mensaje:(verificacion && verificacion.mensaje) || 'No se pudo verificar el guardado en Drive.' });
+            }
+          } catch(err) {
+            limpiar();
+            resolve({ ok:false, mensaje:'No se pudo verificar el guardado en Drive: ' + err.message });
+          }
+        };
+
+        iframe.onload = () => {
+          // Apps Script puede responder en un dominio de Google no legible por seguridad; por eso verificamos con búsqueda JSONP.
+          verificarGuardado();
+        };
+
+        setTimeout(verificarGuardado, 6500);
+
+        try {
+          form.submit();
+        } catch(err) {
+          terminado = true;
           limpiar();
-          resolve({ ok:false, mensaje:'Tiempo de espera agotado comunicando con Google Drive.' });
-        }, 45000);
-
-        function limpiar() {
-          clearTimeout(timeout);
-          try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
-          if (script && script.parentNode) script.parentNode.removeChild(script);
+          resolve({ ok:false, mensaje:'No se pudo enviar el guardado a Google Drive: ' + err.message });
         }
-
-        window[callbackName] = function(respuesta) {
-          limpiar();
-          resolve(respuesta || { ok:false, mensaje:'Respuesta vacía de Google Drive.' });
-        };
-
-        script.onerror = function() {
-          limpiar();
-          resolve({ ok:false, mensaje:'No se pudo conectar con Google Drive para guardar la historia.' });
-        };
-
-        script.src = APPS_SCRIPT_URL
-          + '?accion=' + encodeURIComponent(payload.accion || 'guardarHistoria')
-          + '&payload=' + encodeURIComponent(JSON.stringify(payload))
-          + '&callback=' + encodeURIComponent(callbackName)
-          + '&t=' + Date.now();
-
-        document.body.appendChild(script);
       });
     }
 
@@ -731,6 +781,7 @@
     async function guardarHistoriaDrive(silencioso=false) {
       if(!validarMinimo()) return false;
       calcularEdad();
+      if (typeof prepararControlConsultasAntesDeGuardar === 'function') prepararControlConsultasAntesDeGuardar();
       const datos = obtenerDatosFormulario();
       setDriveStatus('Guardando historia clínica en Google Drive...', 'info');
       try {
@@ -2302,6 +2353,22 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
