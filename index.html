@@ -197,6 +197,15 @@
     .proforma-save-note { margin-top:8px; color:#66617c; font-size:11px; line-height:1.35; }
 
 
+
+    .historia-continua-card { margin-top: 10px; border: 1.5px solid var(--violeta-linea); }
+    .historia-continua-help { background:#f3fff7; border:1px solid #cdebd9; color:#1f6a3c; border-radius:8px; padding:10px 12px; font-weight:800; font-size:12px; margin-bottom:12px; }
+    .historia-continua-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+    .numero-textarea { min-height: 170px; font-family: Arial, Helvetica, sans-serif; line-height:1.45; white-space:pre-wrap; }
+    .numero-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .auto-evolucion-note { margin-top:10px; color:#66617c; font-size:11px; line-height:1.35; }
+    @media (max-width: 1100px) { .historia-continua-grid { grid-template-columns:1fr; } }
+
     @media (max-width: 1100px) { .odontograma-layout { grid-template-columns: 1fr; } }
 
     @media (max-width: 1100px) { .clinic-header, .top-grid, .grid-main, .nav { grid-template-columns: 1fr; } .date-card { justify-self: stretch; } .grid, .grid-2, .checks, .kpi-grid, .patient-resume { grid-template-columns: 1fr; } .clinic-name h1 { font-size: 26px; } }
@@ -363,6 +372,36 @@
       </section>
 
 
+      <section class="card historia-continua-card">
+        <div class="card-title evolution-title">📝 Historia Clínica Continua: Diagnóstico y Tratamientos</div>
+        <div class="card-body">
+          <div class="historia-continua-help">Digite normalmente. Cada línea se numera como 1), 2), 3). Estos textos quedan visibles en la historia clínica del paciente y también alimentan automáticamente la evolución al final.</div>
+          <div class="historia-continua-grid">
+            <div>
+              <label for="diagnosticoNumerado">Diagnóstico acumulado</label>
+              <textarea id="diagnosticoNumerado" class="numero-textarea" placeholder="1) Caries pieza 16&#10;2) Sin pieza 24" onfocus="asegurarInicioNumerado('diagnosticoNumerado')" onkeydown="manejarEnterNumerado(event,'diagnosticoNumerado')" oninput="sincronizarNumeradosConEvolucion(false)" onblur="normalizarNumeracion('diagnosticoNumerado')"></textarea>
+              <div class="numero-actions actions-print-hide"><button type="button" class="secondary mini-btn" onclick="agregarLineaNumerada('diagnosticoNumerado')">➕ Nuevo diagnóstico</button></div>
+            </div>
+            <div>
+              <label for="tratamientoSugeridoNumerado">Tratamientos sugeridos</label>
+              <textarea id="tratamientoSugeridoNumerado" class="numero-textarea" placeholder="1) Endodoncia pieza 16&#10;2) Profilaxis" onfocus="asegurarInicioNumerado('tratamientoSugeridoNumerado')" onkeydown="manejarEnterNumerado(event,'tratamientoSugeridoNumerado')" oninput="sincronizarNumeradosConEvolucion(false)" onblur="normalizarNumeracion('tratamientoSugeridoNumerado')"></textarea>
+              <div class="numero-actions actions-print-hide"><button type="button" class="secondary mini-btn" onclick="agregarLineaNumerada('tratamientoSugeridoNumerado')">➕ Nuevo sugerido</button></div>
+            </div>
+            <div>
+              <label for="tratamientosRealizadosNumerados">Tratamientos realizados</label>
+              <textarea id="tratamientosRealizadosNumerados" class="numero-textarea" placeholder="1) Profilaxis realizada&#10;2) Restauración pieza 21" onfocus="asegurarInicioNumerado('tratamientosRealizadosNumerados')" onkeydown="manejarEnterNumerado(event,'tratamientosRealizadosNumerados')" oninput="sincronizarNumeradosConEvolucion(false)" onblur="normalizarNumeracion('tratamientosRealizadosNumerados')"></textarea>
+              <div class="numero-actions actions-print-hide"><button type="button" class="secondary mini-btn" onclick="agregarLineaNumerada('tratamientosRealizadosNumerados')">➕ Nuevo realizado</button></div>
+            </div>
+          </div>
+          <div class="auto-evolucion-note">Al presionar “Agregar Evolución”, estos tres bloques se copian a la evolución de la consulta. No se genera ningún archivo separado.</div>
+          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;" class="actions-print-hide">
+            <button type="button" class="primary" onclick="sincronizarNumeradosConEvolucion(true)">↧ Pasar a Evolución</button>
+            <button type="button" class="secondary" onclick="limpiarNotasNumeradas()">🧹 Limpiar estos campos</button>
+          </div>
+        </div>
+      </section>
+
+
       <section class="card examenes-card">
         <div class="card-title evolution-title">📁 Exámenes, RX y Tomografías del Paciente</div>
         <div class="card-body">
@@ -409,7 +448,7 @@
           </div>
 
 
-          <div class="historia-receptor-only actions-print-hide">La evolución clínica está al final de la historia. Al buscar un paciente, este formulario se llena automáticamente con la última consulta registrada para que la doctora pueda continuar o modificar antes de agregar una nueva evolución. No genera archivos separados; todo queda dentro del único registro guardado en Drive.</div>
+          <div class="historia-receptor-only actions-print-hide">La evolución clínica está al final de la historia. Se llena automáticamente con el diagnóstico, tratamientos sugeridos y tratamientos realizados que se digitan arriba. Al buscar un paciente también carga la última consulta registrada. No genera archivos separados; todo queda dentro del único registro guardado en Drive.</div>
 
           <div class="grid">
             <div><label for="evFecha">Fecha de atención</label><input id="evFecha" type="date"></div>
@@ -872,8 +911,12 @@
 
     function agregarEvolucion() {
       if(!validarMinimo()) return;
-      if(!evFecha.value || !evDiagnostico.value.trim() || !evProcedimiento.value.trim()) { alert('Para agregar una evolución, llene al menos: fecha, diagnóstico y procedimiento realizado.'); return; }
+      sincronizarNumeradosConEvolucion(false);
+      if(!evFecha.value) evFecha.value = fechaISOHoy();
+      const tieneHistoria = (document.getElementById('diagnosticoNumerado')?.value || '').trim() || (document.getElementById('tratamientoSugeridoNumerado')?.value || '').trim() || (document.getElementById('tratamientosRealizadosNumerados')?.value || '').trim();
+      if(!evFecha.value || (!evDiagnostico.value.trim() && !evProcedimiento.value.trim() && !evTratamiento.value.trim() && !tieneHistoria)) { alert('Para agregar una evolución, llene al menos diagnóstico, tratamiento sugerido o tratamiento realizado.'); return; }
       const ev = datosEvolucionActual();
+      ev.odontogramaSnapshot = JSON.parse(JSON.stringify(odontograma || {}));
       if(editandoEvolucionIndex !== null) {
         evoluciones[editandoEvolucionIndex] = ev;
         editandoEvolucionIndex = null;
@@ -2073,9 +2116,78 @@
     }
 
 
+    function idsNotasNumeradas() { return ['diagnosticoNumerado','tratamientoSugeridoNumerado','tratamientosRealizadosNumerados']; }
+
+    function asegurarInicioNumerado(id) {
+      const el = document.getElementById(id);
+      if (el && !el.value.trim()) el.value = '1) ';
+    }
+
+    function obtenerSiguienteNumeroNumerado(texto) {
+      const lineas = (texto || '').split(/
+/).filter(l => l.trim());
+      return lineas.length + 1;
+    }
+
+    function manejarEnterNumerado(event, id) {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      const el = document.getElementById(id);
+      if (!el) return;
+      const inicio = el.selectionStart || el.value.length;
+      const fin = el.selectionEnd || el.value.length;
+      const antes = el.value.slice(0, inicio);
+      const despues = el.value.slice(fin);
+      const n = obtenerSiguienteNumeroNumerado(antes);
+      const insertar = '
+' + n + ') ';
+      el.value = antes + insertar + despues;
+      const pos = antes.length + insertar.length;
+      el.selectionStart = el.selectionEnd = pos;
+      sincronizarNumeradosConEvolucion(false);
+    }
+
+    function normalizarNumeracion(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const lineas = el.value.split(/
+/).map(l => l.trim()).filter(Boolean).map(l => l.replace(/^\d+\)\s*/, ''));
+      el.value = lineas.map((l,i) => (i+1) + ') ' + l).join('
+');
+      sincronizarNumeradosConEvolucion(false);
+    }
+
+    function agregarLineaNumerada(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (!el.value.trim()) {
+        el.value = '1) ';
+      } else {
+        normalizarNumeracion(id);
+        const n = obtenerSiguienteNumeroNumerado(el.value);
+        el.value = el.value.replace(/\s+$/,'') + '
+' + n + ') ';
+      }
+      el.focus();
+      el.selectionStart = el.selectionEnd = el.value.length;
+      sincronizarNumeradosConEvolucion(false);
+    }
+
+    function sincronizarNumeradosConEvolucion(mostrarMensaje) {
+      const dx = document.getElementById('diagnosticoNumerado')?.value || '';
+      const sug = document.getElementById('tratamientoSugeridoNumerado')?.value || '';
+      const real = document.getElementById('tratamientosRealizadosNumerados')?.value || '';
+      if (document.getElementById('evDiagnostico')) evDiagnostico.value = dx;
+      if (document.getElementById('evTratamiento')) evTratamiento.value = sug;
+      if (document.getElementById('evProcedimiento')) evProcedimiento.value = real;
+      if (document.getElementById('evFecha') && !evFecha.value) evFecha.value = fechaISOHoy();
+      if (mostrarMensaje) alert('Diagnóstico y tratamientos copiados a la evolución. Para dejarlo registrado, presione “Agregar Evolución” y luego “Guardar en Drive”.');
+    }
+
     function limpiarNotasNumeradas() {
-      const ids = ['diagnosticoNumerado','tratamientoSugeridoNumerado','tratamientosRealizadosNumerados'];
-      ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      if(!confirm('¿Limpiar los campos de diagnóstico y tratamientos de esta pantalla? Esto no borra evoluciones ya agregadas.')) return;
+      idsNotasNumeradas().forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      sincronizarNumeradosConEvolucion(false);
     }
 
     async function agregarNotasNumeradasAEvolucion() {
@@ -2111,6 +2223,7 @@
   </script>
 </body>
 </html>
+
 
 
 
