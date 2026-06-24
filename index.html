@@ -650,7 +650,7 @@
       box.textContent = msg;
     }
 
-    async function compactarParaDrive(valor) {
+    function compactarParaDrive(valor) {
       // Reduce el JSON antes de enviarlo por JSONP/GET.
       // Evita falsos positivos y evita que la URL crezca con campos vacíos o módulos eliminados.
       if (Array.isArray(valor)) {
@@ -692,6 +692,16 @@
         const script = document.createElement('script');
 
         const payloadCompacto = compactarParaDrive({ accion:'guardarHistoria', ...payload });
+        // Seguridad: nunca enviar a Apps Script sin cédula/apellidos.
+        if (!payloadCompacto.cedula) {
+          payloadCompacto.cedula = String(document.getElementById('cedula')?.value || document.getElementById('buscarCedula')?.value || '').replace(/\D/g,'');
+        }
+        if (!payloadCompacto.primerApellido) {
+          payloadCompacto.primerApellido = String(document.getElementById('primerApellido')?.value || '').trim();
+        }
+        if (!payloadCompacto.segundoApellido) {
+          payloadCompacto.segundoApellido = String(document.getElementById('segundoApellido')?.value || '').trim();
+        }
         const url = APPS_SCRIPT_URL
           + '?accion=guardarHistoria'
           + '&payload=' + encodeURIComponent(JSON.stringify(payloadCompacto))
@@ -776,6 +786,14 @@
       if(!validarMinimo()) return false;
       calcularEdad();
       const datos = obtenerDatosFormulario();
+      // Refuerzo crítico: en algunos navegadores el guardado compacto podía perder la cédula.
+      // Se toma siempre de los campos visibles antes de enviar a Drive.
+      const cedulaVisible = String((document.getElementById('cedula')?.value || datos.cedula || document.getElementById('buscarCedula')?.value || '')).replace(/\D/g,'');
+      if (cedulaVisible) datos.cedula = cedulaVisible;
+      const primerApellidoVisible = String(document.getElementById('primerApellido')?.value || datos.primerApellido || '').trim();
+      const segundoApellidoVisible = String(document.getElementById('segundoApellido')?.value || datos.segundoApellido || '').trim();
+      if (primerApellidoVisible) datos.primerApellido = primerApellidoVisible;
+      if (segundoApellidoVisible) datos.segundoApellido = segundoApellidoVisible;
       setDriveStatus('Guardando historia clínica en Google Drive...', 'info');
       try {
         const r = await enviarDrive({ accion:'guardarHistoria', ...datos });
@@ -2346,6 +2364,23 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
